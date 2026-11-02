@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { 
+  getFirestore, collection, addDoc, doc, setDoc, getDoc, 
+  onSnapshot, updateDoc 
+} from 'firebase/firestore';
 import { 
   Zap, Wrench, ShoppingBag, LayoutDashboard, LogIn, LogOut, 
-  PhoneCall, MessageCircle, AlertTriangle, User, X, CheckCircle2, Clock, Truck 
+  PhoneCall, MessageCircle, AlertTriangle, User, X, CheckCircle2, 
+  Clock, Truck, Star, AlertCircle, MessageSquare, ThumbsUp, Shield 
 } from 'lucide-react';
 
 const ADMIN_PHONE = "6367626276";
 const ADMIN_PIN = "2026";
 
-// आपकी लाइव Firebase Cloud Keys
+// हेमंत जी की लाइव Firebase Keys
 const firebaseConfig = {
   apiKey: "AIzaSyDzD7cmC7h_uSOB22uNBvPlaO7U1w6Y1_k",
   authDomain: "electrical-service-hub-742d9.firebaseapp.com",
@@ -23,74 +27,148 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('esh_user');
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTab] = useState('home');
-  const [showLogin, setShowLogin] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
 
-  const [authName, setAuthName] = useState('');
-  const [authPhone, setAuthPhone] = useState('');
-  const [authPin, setAuthPin] = useState('');
+  // Auth Inputs
+  const [nameInput, setNameInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // लाइव क्लाउड सिंक (Amazon स्टाइल रीयल-टाइम डेटा)
+  // Review & Complaint Modal
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  const [ratingVal, setRatingVal] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [complaintText, setComplaintText] = useState('');
+
+  // 1. SPLASH SCREEN (2.5 Seconds)
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 2. REAL-TIME BOOKINGS LISTENER
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "bookings"), (snapshot) => {
-      const liveList = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
-      liveList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setBookings(liveList);
+      const live = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+      live.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setBookings(live);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleAuth = (e) => {
+  // 3. SECURE AUTH: REGISTRATION
+  const handleRegister = async (e) => {
     e.preventDefault();
-    if (authPhone.length !== 10) return alert("10 अंकों का फोन नंबर डालें!");
-    if (authPin.length !== 4) return alert("4 अंकों का पिन डालें!");
+    if (!nameInput.trim()) return alert("कृपया अपना पूरा नाम लिखें!");
+    if (phoneInput.length !== 10) return alert("कृपया 10 अंकों का मोबाइल नंबर डालें!");
+    if (pinInput.length !== 4) return alert("4 अंकों का सुरक्षित पिन बनाएं!");
+    if (pinInput !== confirmPinInput) return alert("दोनों पिन एक जैसे होने चाहिए!");
 
-    const cleanPhone = authPhone.trim();
-    if (cleanPhone === ADMIN_PHONE) {
-      if (authPin === ADMIN_PIN) {
-        const adminUser = { name: "मास्टर एडमिन", phone: cleanPhone, role: 'admin' };
-        setUser(adminUser);
-        localStorage.setItem('esh_user', JSON.stringify(adminUser));
-        setShowLogin(false);
-        setActiveTab('admin');
-        alert("नमस्ते एडमिन! कंट्रोल रूम खुल चुका है।");
-      } else {
-        alert("गलत एडमिन पिन! सही पिन 2026 डालें।");
+    setAuthLoading(true);
+    const cleanPhone = phoneInput.trim();
+
+    try {
+      const userRef = doc(db, "users", cleanPhone);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        alert("यह मोबाइल नंबर पहले से रजिस्टर्ड है! कृपया सीधे 'लॉगिन' करें।");
+        setAuthMode('login');
+        setAuthLoading(false);
+        return;
       }
-    } else {
-      if (!authName.trim()) return alert("कृपया अपना नाम दर्ज करें!");
-      const custUser = { name: authName.trim(), phone: cleanPhone, role: 'customer' };
-      setUser(custUser);
-      localStorage.setItem('esh_user', JSON.stringify(custUser));
-      setShowLogin(false);
-      alert("रजिस्ट्रेशन सफल! स्वागत है " + custUser.name);
+
+      const newUser = {
+        name: nameInput.trim(),
+        phone: cleanPhone,
+        pin: pinInput.trim(),
+        role: cleanPhone === ADMIN_PHONE ? 'admin' : 'customer',
+        createdAt: Date.now()
+      };
+
+      await setDoc(userRef, newUser);
+      setUser(newUser);
+      localStorage.setItem('esh_user', JSON.stringify(newUser));
+      alert(`🎉 बधाई हो ${newUser.name}! आपका अकाउंट सफलतापूर्वक बन गया है।`);
+    } catch (err) {
+      alert("रजिस्ट्रेशन एरर: " + err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // 4. SECURE AUTH: LOGIN WITH PIN VERIFICATION
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (phoneInput.length !== 10) return alert("10 अंकों का फोन नंबर डालें!");
+    if (pinInput.length !== 4) return alert("4 अंकों का पिन डालें!");
+
+    setAuthLoading(true);
+    const cleanPhone = phoneInput.trim();
+
+    // Master Admin Bypass Check
+    if (cleanPhone === ADMIN_PHONE && pinInput === ADMIN_PIN) {
+      const adminData = { name: "मास्टर एडमिन", phone: ADMIN_PHONE, role: 'admin' };
+      setUser(adminData);
+      localStorage.setItem('esh_user', JSON.stringify(adminData));
+      setActiveTab('admin');
+      setAuthLoading(false);
+      alert("नमस्ते एडमिन! कंट्रोल रूम खुल चुका है।");
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "users", cleanPhone);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        alert("❌ यह नंबर रजिस्टर्ड नहीं है! कृपया पहले 'नया खाता बनाएं (Register)' पर क्लिक करें।");
+        setAuthMode('register');
+        setAuthLoading(false);
+        return;
+      }
+
+      const userData = userSnap.data();
+      if (userData.pin !== pinInput.trim()) {
+        alert("❌ गलत पिन! कृपया अपना सही 4-अंकों का पिन डालें।");
+        setAuthLoading(false);
+        return;
+      }
+
+      setUser(userData);
+      localStorage.setItem('esh_user', JSON.stringify(userData));
+      alert(`नमस्ते ${userData.name}! लॉगिन सफल हुआ।`);
+    } catch (err) {
+      alert("लॉगिन एरर: " + err.message);
+    } finally {
+      setAuthLoading(false);
     }
   };
 
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('esh_user');
+    setPhoneInput('');
+    setPinInput('');
+    setAuthMode('login');
     setActiveTab('home');
   };
 
+  // 5. BOOKING SUBMISSION
   const handleBooking = async (e) => {
     e.preventDefault();
-    if (!user) {
-      alert("सर्विस बुक करने के लिए कृपया पहले नाम और फोन नंबर से लॉगिन करें!");
-      setShowLogin(true);
-      return;
-    }
-
     const form = e.target;
-    const addr = form.custAddr.value;
-    const slot = form.custSlot.value;
     const refCode = "ESH-" + Math.floor(1000 + Math.random() * 9000);
 
     const bookingData = {
@@ -99,9 +177,9 @@ export default function App() {
       customerPhone: user.phone,
       serviceName: selectedService.name,
       price: selectedService.price,
-      slot: slot,
-      address: addr,
-      status: "Placed",
+      slot: form.custSlot.value,
+      address: form.custAddr.value,
+      status: "Placed", // Placed ➔ Confirmed ➔ On The Way ➔ Completed
       createdAt: Date.now()
     };
 
@@ -109,17 +187,30 @@ export default function App() {
       await addDoc(collection(db, "bookings"), bookingData);
       setSelectedService(null);
       setActiveTab('orders');
-      alert(`🎉 बुकिंग सफल! रिफरेंस: #${refCode}\nएडमिन को लाइव आर्डर प्राप्त हो गया है।`);
+      alert(`🎉 बुकिंग दर्ज हो चुकी है! रिफरेंस: #${refCode}`);
     } catch (err) {
-      alert("बुकिंग सेव करने में एरर: " + err.message);
+      alert("एरर: " + err.message);
     }
   };
 
-  const updateStatus = async (docId, newStatus) => {
+  // 6. RATING & COMPLAINT SUBMISSION
+  const submitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewModalBooking) return;
+
     try {
-      await updateDoc(doc(db, "bookings", docId), { status: newStatus });
+      await updateDoc(doc(db, "bookings", reviewModalBooking.docId), {
+        rating: ratingVal,
+        review: reviewText,
+        complaint: complaintText || null,
+        complaintStatus: complaintText ? "Pending" : null
+      });
+      alert("आपकी रेटिंग और प्रतिक्रिया दर्ज कर ली गई है। धन्यवाद!");
+      setReviewModalBooking(null);
+      setReviewText('');
+      setComplaintText('');
     } catch (err) {
-      alert("स्टेटस अपडेट नहीं हो सका: " + err.message);
+      alert("एरर: " + err.message);
     }
   };
 
@@ -136,45 +227,220 @@ export default function App() {
     { id: 3, name: "Anchor Roma 6A Modular Switch Set", price: 310, brand: "Anchor" }
   ];
 
+  // ================= 1. SPLASH SCREEN DISPLAY =================
+  if (showSplash) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0B1E3D] to-[#1E3A8A] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="bg-yellow-400 p-5 rounded-3xl shadow-2xl animate-bounce mb-6">
+          <Zap className="w-16 h-16 text-[#0B1E3D] fill-[#0B1E3D]" />
+        </div>
+        <h1 className="text-3xl font-black tracking-tight text-white">विद्युत सेवा हब</h1>
+        <p className="text-yellow-300 font-bold tracking-widest text-xs uppercase mt-1">Electrical Service Hub</p>
+        <div className="mt-8 flex items-center gap-2 text-xs text-blue-200 bg-white/10 px-4 py-2 rounded-full border border-white/20">
+          <Shield className="w-4 h-4 text-yellow-400" />
+          <span>100% वेरिफाइड इलेक्ट्रीशियन व असली सामान</span>
+        </div>
+        <div className="mt-12 flex gap-1.5">
+          <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping" />
+          <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full" />
+          <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // ================= 2. MANDATORY AUTH SCREEN (LOGIN / REGISTER) =================
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 font-sans">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          
+          {/* Header */}
+          <div className="bg-[#1E3A8A] text-white p-6 text-center">
+            <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-2 text-[#0B1E3D] font-black">
+              <Zap className="w-7 h-7 fill-[#0B1E3D]" />
+            </div>
+            <h2 className="text-xl font-black">विद्युत सेवा हब</h2>
+            <p className="text-xs text-yellow-300 font-medium">Electrical Service Hub</p>
+          </div>
+
+          {/* Tab Selector: Login vs Register */}
+          <div className="flex border-b border-slate-200 bg-slate-50">
+            <button 
+              onClick={() => setAuthMode('login')} 
+              className={`flex-1 py-3 text-xs font-black transition ${authMode === 'login' ? 'bg-white text-blue-900 border-b-2 border-blue-900' : 'text-slate-500'}`}
+            >
+              लॉगिन (Login)
+            </button>
+            <button 
+              onClick={() => setAuthMode('register')} 
+              className={`flex-1 py-3 text-xs font-black transition ${authMode === 'register' ? 'bg-white text-blue-900 border-b-2 border-blue-900' : 'text-slate-500'}`}
+            >
+              नया खाता बनाएं (Register)
+            </button>
+          </div>
+
+          {/* Form */}
+          <div className="p-6">
+            {authMode === 'login' ? (
+              <form onSubmit={handleLogin} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">मोबाइल नंबर (Phone Number)</label>
+                  <input 
+                    required 
+                    type="tel" 
+                    maxLength={10} 
+                    value={phoneInput} 
+                    onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
+                    placeholder="10 अंकों का मोबाइल नंबर" 
+                    className="w-full p-2.5 border rounded-xl font-bold" 
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">एडमिन लॉगिन: <strong>6367626276</strong></span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">4-अंकों का गुप्त पिन (PIN)</label>
+                  <input 
+                    required 
+                    type="password" 
+                    maxLength={4} 
+                    value={pinInput} 
+                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))} 
+                    placeholder="****" 
+                    className="w-full p-2.5 border rounded-xl text-center tracking-widest font-black text-base" 
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">एडमिन पिन: <strong>2026</strong></span>
+                </div>
+
+                <button 
+                  disabled={authLoading} 
+                  type="submit" 
+                  className="w-full bg-[#1E3A8A] hover:bg-[#0B1E3D] text-white py-3 rounded-xl font-black text-xs shadow-md transition"
+                >
+                  {authLoading ? "जांच हो रही है..." : "लॉगिन करें"}
+                </button>
+
+                <p className="text-[11px] text-center text-slate-500 pt-2">
+                  नया अकाउंट बनाना है?{" "}
+                  <button type="button" onClick={() => setAuthMode('register')} className="text-blue-900 font-bold underline">
+                    यहाँ रजिस्टर करें
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">पूरा नाम (Full Name)</label>
+                  <input 
+                    required 
+                    type="text" 
+                    value={nameInput} 
+                    onChange={(e) => setNameInput(e.target.value)} 
+                    placeholder="जैसे: राहुल शर्मा" 
+                    className="w-full p-2.5 border rounded-xl font-bold" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">10 अंकों का मोबाइल नंबर</label>
+                  <input 
+                    required 
+                    type="tel" 
+                    maxLength={10} 
+                    value={phoneInput} 
+                    onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
+                    placeholder="मोबाइल नंबर डालें" 
+                    className="w-full p-2.5 border rounded-xl font-bold" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">4-अंकों का पिन</label>
+                    <input 
+                      required 
+                      type="password" 
+                      maxLength={4} 
+                      value={pinInput} 
+                      onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))} 
+                      placeholder="****" 
+                      className="w-full p-2 border rounded-xl text-center font-black" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">पिन कन्फर्म करें</label>
+                    <input 
+                      required 
+                      type="password" 
+                      maxLength={4} 
+                      value={confirmPinInput} 
+                      onChange={(e) => setConfirmPinInput(e.target.value.replace(/\D/g, ''))} 
+                      placeholder="****" 
+                      className="w-full p-2 border rounded-xl text-center font-black" 
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  disabled={authLoading} 
+                  type="submit" 
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-xs shadow-md transition mt-2"
+                >
+                  {authLoading ? "अकाउंट बन रहा है..." : "खाता बनाएं (Register Now)"}
+                </button>
+
+                <p className="text-[11px] text-center text-slate-500 pt-2">
+                  पहले से अकाउंट है?{" "}
+                  <button type="button" onClick={() => setAuthMode('login')} className="text-blue-900 font-bold underline">
+                    सीधे लॉगिन करें
+                  </button>
+                </p>
+              </form>
+            )}
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ================= 3. MAIN LOGGED-IN APP =================
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20 font-sans">
-      <header className="bg-blue-900 text-white p-3.5 shadow-md flex justify-between items-center sticky top-0 z-30">
+      
+      {/* Header */}
+      <header className="bg-[#1E3A8A] text-white p-3.5 shadow-md flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-          <div className="bg-yellow-400 p-1 rounded-lg">
-            <Zap className="w-5 h-5 text-blue-900 fill-blue-900" />
+          <div className="bg-yellow-400 p-1.5 rounded-lg text-[#0B1E3D]">
+            <Zap className="w-5 h-5 fill-[#0B1E3D]" />
           </div>
           <div>
             <span className="font-black text-base block leading-none">विद्युत सेवा हब</span>
-            <span className="text-[9px] text-yellow-300 font-semibold tracking-wider uppercase">Live Cloud Sync</span>
+            <span className="text-[9px] text-yellow-300 font-bold uppercase">Electrical Service Hub</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {user ? (
-            <div className="flex items-center gap-1.5">
-              <span className={`text-[10px] px-2 py-0.5 rounded font-black ${user.role === 'admin' ? 'bg-yellow-400 text-blue-900' : 'bg-emerald-600 text-white'}`}>
-                {user.role === 'admin' ? 'ADMIN' : user.name.split(' ')[0]}
-              </span>
-              <button onClick={handleLogout} className="text-red-300 p-1">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setShowLogin(true)} className="text-xs bg-yellow-400 text-blue-900 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow">
-              <LogIn className="w-3.5 h-3.5" /> लॉगिन / साइन इन
-            </button>
-          )}
+          <span className={`text-[10px] px-2 py-0.5 rounded font-black ${user.role === 'admin' ? 'bg-yellow-400 text-blue-900' : 'bg-emerald-600 text-white'}`}>
+            {user.role === 'admin' ? 'MASTER ADMIN' : user.name.split(' ')[0]}
+          </span>
+          <button onClick={handleLogout} title="लॉगआउट" className="text-red-300 hover:text-white p-1">
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
+      {/* Main Body */}
       <main className="max-w-xl mx-auto p-4 space-y-4">
+
+        {/* SOS Alert */}
         <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-3.5 rounded-2xl shadow-lg flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <div className="bg-white/20 p-2 rounded-xl animate-pulse">
               <AlertTriangle className="w-5 h-5 text-yellow-300" />
             </div>
             <div>
-              <h3 className="font-black text-sm">इमरजेंसी बिजली फॉल्ट?</h3>
+              <h3 className="font-black text-sm">24x7 इमरजेंसी बिजली फॉल्ट?</h3>
               <p className="text-[11px] text-red-100">15 मिनट में इलेक्ट्रीशियन सहायता</p>
             </div>
           </div>
@@ -183,12 +449,13 @@ export default function App() {
           </a>
         </div>
 
-        {activeTab === 'admin' && user?.role === 'admin' && (
+        {/* ================= ADMIN VIEW ================= */}
+        {activeTab === 'admin' && user.role === 'admin' && (
           <div className="space-y-4">
             <div className="bg-slate-900 text-white p-4 rounded-2xl flex justify-between items-center shadow-lg border border-yellow-400/30">
               <div>
-                <span className="text-[10px] bg-yellow-400 text-blue-950 font-black px-2 py-0.5 rounded-full uppercase">Master Admin</span>
-                <h2 className="text-lg font-black mt-1">लाइव आर्डर कंट्रोल रूम</h2>
+                <span className="text-[10px] bg-yellow-400 text-blue-950 font-black px-2 py-0.5 rounded-full uppercase">Master Admin Room</span>
+                <h2 className="text-lg font-black mt-1">एडमिन कंट्रोल डैशबोर्ड</h2>
                 <p className="text-xs text-slate-400">कुल लाइव बुकिंग्स: {bookings.length}</p>
               </div>
               <button onClick={() => setActiveTab('home')} className="text-xs bg-blue-800 text-white px-3 py-1.5 rounded-lg font-bold">
@@ -196,8 +463,10 @@ export default function App() {
               </button>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border space-y-3 shadow-sm">
-              <h3 className="font-bold text-xs text-slate-800">ग्राहकों के लाइव आर्डर (Real-time Sync)</h3>
+            {/* Bookings, Reviews & Complaints */}
+            <div className="bg-white p-4 rounded-2xl border space-y-3 shadow-sm">
+              <h3 className="font-bold text-xs text-slate-800">ग्राहकों के लाइव आर्डर व शिकायतें</h3>
+
               {bookings.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-4">अभी कोई बुकिंग दर्ज नहीं हुई है।</p>
               ) : (
@@ -206,9 +475,8 @@ export default function App() {
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="font-black text-blue-900">#{b.bookingId}</span> • <strong>{b.customerName}</strong>
-                        <div className="text-slate-700 font-semibold mt-0.5">{b.serviceName} (₹{b.price})</div>
+                        <div className="text-slate-800 font-bold mt-0.5">{b.serviceName} (₹{b.price})</div>
                         <div className="text-[11px] text-slate-500">📞 {b.customerPhone} | 📍 {b.address}</div>
-                        <div className="text-[10px] text-slate-400">स्लॉट: {b.slot}</div>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded font-black ${
                         b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
@@ -219,15 +487,50 @@ export default function App() {
                       </span>
                     </div>
 
+                    {/* Customer Rating & Review Display */}
+                    {b.rating && (
+                      <div className="bg-yellow-50 border border-yellow-200 p-2 rounded-lg space-y-1">
+                        <div className="flex items-center gap-1 text-amber-500 font-black">
+                          {"★".repeat(b.rating)}{"☆".repeat(5 - b.rating)} 
+                          <span className="text-[10px] text-slate-700 ml-1">({b.rating}/5 स्टार)</span>
+                        </div>
+                        {b.review && <p className="text-[11px] text-slate-700 italic">"{b.review}"</p>}
+                      </div>
+                    )}
+
+                    {/* Customer Complaint Display */}
+                    {b.complaint && (
+                      <div className="bg-red-50 border border-red-200 p-2 rounded-lg space-y-1 text-red-900">
+                        <div className="flex justify-between items-center font-bold text-[11px]">
+                          <span className="flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-600" /> ग्राहक की शिकायत:
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${b.complaintStatus === 'Resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-200 text-red-900'}`}>
+                            {b.complaintStatus === 'Resolved' ? '✔ हल हो गई' : 'लंबित (Pending)'}
+                          </span>
+                        </div>
+                        <p className="text-[11px]">{b.complaint}</p>
+                        {b.complaintStatus !== 'Resolved' && (
+                          <button 
+                            onClick={() => updateDoc(doc(db, "bookings", b.docId), { complaintStatus: "Resolved" })} 
+                            className="text-[10px] bg-red-700 text-white font-bold px-2 py-0.5 rounded mt-1"
+                          >
+                            शिकायत का समाधान मार्क करें
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Status Action Buttons */}
                     <div className="flex gap-1.5 pt-2 border-t flex-wrap">
-                      <button onClick={() => updateStatus(b.docId, 'Confirmed')} className="bg-blue-800 text-white text-[10px] px-2.5 py-1 rounded font-bold">
-                        स्वीकार (Confirm)
+                      <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "Confirmed" })} className="bg-blue-800 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        स्वीकारें
                       </button>
-                      <button onClick={() => updateStatus(b.docId, 'On The Way')} className="bg-purple-700 text-white text-[10px] px-2.5 py-1 rounded font-bold">
-                        रास्ते में (On The Way)
+                      <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "On The Way" })} className="bg-purple-700 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        रास्ते में
                       </button>
-                      <button onClick={() => updateStatus(b.docId, 'Completed')} className="bg-emerald-600 text-white text-[10px] px-2.5 py-1 rounded font-bold">
-                        पूरा हुआ (Done)
+                      <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "Completed" })} className="bg-emerald-600 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        काम पूरा (Done)
                       </button>
                     </div>
                   </div>
@@ -237,15 +540,14 @@ export default function App() {
           </div>
         )}
 
+        {/* ================= CUSTOMER ORDERS VIEW ================= */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
             <h2 className="font-black text-base text-slate-800">मेरे आर्डर व लाइव ट्रैकिंग</h2>
-            {!user ? (
-              <div className="bg-white p-6 rounded-2xl text-center space-y-2 border">
-                <p className="text-xs text-slate-500">अपने आर्डर देखने के लिए पहले लॉगिन करें</p>
-                <button onClick={() => setShowLogin(true)} className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg">
-                  लॉगिन करें
-                </button>
+
+            {bookings.filter(b => b.customerPhone === user.phone).length === 0 ? (
+              <div className="bg-white p-6 rounded-2xl text-center border text-xs text-slate-500">
+                आपने अभी तक कोई सर्विस बुक नहीं की है।
               </div>
             ) : (
               bookings.filter(b => b.customerPhone === user.phone).map((b) => (
@@ -258,8 +560,9 @@ export default function App() {
                     <span className="text-sm font-black text-slate-900">₹{b.price}</span>
                   </div>
 
+                  {/* Amazon Progress Bar */}
                   <div className="bg-slate-50 p-3 rounded-xl border space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">लाइव स्टेटस</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">लाइव ट्रैकिंग</span>
                     <div className="flex items-center justify-between text-[11px] font-bold">
                       <span className="text-blue-900 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> दर्ज हुई</span>
                       <span className={b.status !== 'Placed' ? 'text-blue-900' : 'text-slate-300'}>स्वीकृत</span>
@@ -275,17 +578,38 @@ export default function App() {
                       }`} />
                     </div>
                   </div>
+
+                  {/* Rating & Complaint Trigger when Completed */}
+                  {b.status === 'Completed' && (
+                    <div className="border-t pt-2 flex justify-between items-center">
+                      {b.rating ? (
+                        <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4" /> आपने {b.rating}★ रेटिंग दी है
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setReviewModalBooking(b)} 
+                          className="w-full bg-yellow-400 hover:bg-yellow-500 text-blue-950 font-black text-xs py-2 rounded-xl flex items-center justify-center gap-1 shadow"
+                        >
+                          <Star className="w-3.5 h-3.5 fill-blue-950" /> सर्विस को रेटिंग दें / शिकायत दर्ज करें
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
         )}
 
+        {/* ================= HOME VIEW ================= */}
         {activeTab === 'home' && (
           <div className="space-y-4">
+            
+            {/* Banner */}
             <div className="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-5 rounded-2xl shadow-lg">
               <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                ★ डोरस्टेप इलेक्ट्रीशियन सेवा
+                ★ 45 मिनट में इलेक्ट्रीशियन घर पर
               </span>
               <h1 className="text-xl font-black mt-2">प्रमाणित इलेक्ट्रीशियन और 100% असली सामान</h1>
               <p className="text-xs text-blue-200 mt-1">शॉर्ट सर्किट, पंखा, मोटर, इनवर्टर व वायरिंग रिपेयर</p>
@@ -300,33 +624,25 @@ export default function App() {
               </div>
             </div>
 
+            {/* Services */}
             <div className="space-y-2.5">
-              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं</h2>
+              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं (Doorstep Services)</h2>
               {services.map((s) => (
                 <div key={s.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
                   <div>
                     <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
                     <div className="text-xs font-black text-blue-800 mt-0.5">₹{s.price}</div>
                   </div>
-                  <button 
-                    onClick={() => {
-                      if (!user) {
-                        alert("सर्विस बुक करने के लिए कृपया पहले नाम और मोबाइल नंबर से लॉगिन करें!");
-                        setShowLogin(true);
-                      } else {
-                        setSelectedService(s);
-                      }
-                    }} 
-                    className="bg-blue-900 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow"
-                  >
+                  <button onClick={() => setSelectedService(s)} className="bg-blue-900 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow">
                     बुक करें
                   </button>
                 </div>
               ))}
             </div>
 
+            {/* Products */}
             <div className="space-y-2.5 pt-2">
-              <h2 className="font-black text-sm text-slate-800">सामान स्टोर</h2>
+              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
               {products.map((p) => (
                 <div key={p.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
                   <div>
@@ -346,48 +662,12 @@ export default function App() {
                 </div>
               ))}
             </div>
+
           </div>
         )}
       </main>
 
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleAuth} className="bg-white p-6 rounded-2xl w-full max-w-xs space-y-3.5 shadow-2xl relative text-xs">
-            <button type="button" onClick={() => setShowLogin(false)} className="absolute right-4 top-4 text-slate-400">
-              <X className="w-5 h-5" />
-            </button>
-            <div className="text-center">
-              <div className="w-10 h-10 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto mb-1.5">
-                <User className="w-5 h-5" />
-              </div>
-              <h3 className="font-black text-base text-slate-900">रजिस्ट्रेशन / लॉगिन</h3>
-              <p className="text-[11px] text-slate-500">लाइव आर्डर ट्रैकिंग के लिए</p>
-            </div>
-
-            <div>
-              <label className="block font-bold mb-1">आपका नाम (Full Name)</label>
-              <input required type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="जैसे: राहुल शर्मा" className="w-full p-2.5 border rounded-lg font-semibold" />
-            </div>
-
-            <div>
-              <label className="block font-bold mb-1">10 अंकों का मोबाइल नंबर</label>
-              <input required type="tel" maxLength={10} value={authPhone} onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))} placeholder="जैसे: 98290XXXXX" className="w-full p-2.5 border rounded-lg font-bold" />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">एडमिन के लिए: <strong>6367626276</strong></span>
-            </div>
-
-            <div>
-              <label className="block font-bold mb-1">4-अंकों का गुप्त पिन (PIN)</label>
-              <input required type="password" maxLength={4} value={authPin} onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, ''))} placeholder="****" className="w-full p-2.5 border rounded-lg text-center tracking-widest font-black text-base" />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">एडमिन पिन: <strong>2026</strong></span>
-            </div>
-
-            <button type="submit" className="w-full bg-blue-900 text-white py-2.5 rounded-lg font-bold shadow text-xs">
-              रजिस्टर / लॉगिन करें
-            </button>
-          </form>
-        </div>
-      )}
-
+      {/* ================= BOOKING MODAL ================= */}
       {selectedService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={handleBooking} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
@@ -398,8 +678,8 @@ export default function App() {
             <p className="text-xs text-blue-800 font-bold">{selectedService.name} (₹{selectedService.price})</p>
 
             <div className="bg-slate-50 p-2.5 rounded-lg border text-slate-600">
-              <div><strong>ग्राहक:</strong> {user?.name}</div>
-              <div><strong>फोन:</strong> {user?.phone}</div>
+              <div><strong>ग्राहक:</strong> {user.name}</div>
+              <div><strong>मोबाइल:</strong> {user.phone}</div>
             </div>
 
             <div>
@@ -423,6 +703,63 @@ export default function App() {
         </div>
       )}
 
+      {/* ================= RATING & COMPLAINT MODAL ================= */}
+      {reviewModalBooking && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={submitReview} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
+            <button type="button" onClick={() => setReviewModalBooking(null)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-sm text-slate-900">रेटिंग और फीडबैक</h3>
+            <p className="text-xs text-slate-500">सर्विस: {reviewModalBooking.serviceName}</p>
+
+            {/* 5-Star Selector */}
+            <div>
+              <label className="block font-bold mb-1">रेटिंग दें:</label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button 
+                    key={star} 
+                    type="button" 
+                    onClick={() => setRatingVal(star)} 
+                    className={`text-2xl ${star <= ratingVal ? 'text-amber-400' : 'text-slate-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">आपकी राय (Review)</label>
+              <textarea 
+                value={reviewText} 
+                onChange={(e) => setReviewText(e.target.value)} 
+                rows={2} 
+                placeholder="काम कैसा हुआ? इलेक्ट्रीशियन का व्यवहार कैसा था?" 
+                className="w-full p-2 border rounded-lg"
+              />
+            </div>
+
+            <div className="border-t pt-2">
+              <label className="block font-bold text-red-700 mb-1">क्या कोई शिकायत है? (Complaint Box)</label>
+              <textarea 
+                value={complaintText} 
+                onChange={(e) => setComplaintText(e.target.value)} 
+                rows={2} 
+                placeholder="अगर कोई खराबी दोबारा आई है या कोई समस्या है तो लिखें (एडमिन तुरंत देखेगा)" 
+                className="w-full p-2 border border-red-200 rounded-lg text-red-900 bg-red-50/50"
+              />
+            </div>
+
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              सबमिट करें
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ================= BOTTOM NAVIGATION ================= */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around py-2.5 z-40 shadow-lg">
         <button onClick={() => setActiveTab('home')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'home' ? 'text-blue-900' : 'text-slate-400'}`}>
           <Zap className="w-4 h-4" /> होम
@@ -430,16 +767,13 @@ export default function App() {
         <button onClick={() => setActiveTab('orders')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'orders' ? 'text-blue-900' : 'text-slate-400'}`}>
           <Clock className="w-4 h-4" /> मेरे आर्डर
         </button>
-        {user?.role === 'admin' ? (
+        {user?.role === 'admin' && (
           <button onClick={() => setActiveTab('admin')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'admin' ? 'text-yellow-600' : 'text-slate-400'}`}>
             <LayoutDashboard className="w-4 h-4" /> एडमिन
           </button>
-        ) : (
-          <button onClick={() => setShowLogin(true)} className="text-xs font-bold flex flex-col items-center gap-0.5 text-slate-400">
-            <User className="w-4 h-4" /> {user ? 'प्रोफाइल' : 'लॉगिन'}
-          </button>
         )}
       </nav>
+
     </div>
   );
 }
