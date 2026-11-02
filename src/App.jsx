@@ -189,4 +189,257 @@ export default function App() {
               <div>
                 <span className="text-[10px] bg-yellow-400 text-blue-950 font-black px-2 py-0.5 rounded-full uppercase">Master Admin</span>
                 <h2 className="text-lg font-black mt-1">लाइव आर्डर कंट्रोल रूम</h2>
-                <p classN
+                <p className="text-xs text-slate-400">कुल लाइव बुकिंग्स: {bookings.length}</p>
+              </div>
+              <button onClick={() => setActiveTab('home')} className="text-xs bg-blue-800 text-white px-3 py-1.5 rounded-lg font-bold">
+                कस्टमर व्यू
+              </button>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border space-y-3 shadow-sm">
+              <h3 className="font-bold text-xs text-slate-800">ग्राहकों के लाइव आर्डर (Real-time Sync)</h3>
+              {bookings.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4">अभी कोई बुकिंग दर्ज नहीं हुई है।</p>
+              ) : (
+                bookings.map((b) => (
+                  <div key={b.docId} className="p-3 bg-slate-50 border rounded-xl space-y-2 text-xs">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-black text-blue-900">#{b.bookingId}</span> • <strong>{b.customerName}</strong>
+                        <div className="text-slate-700 font-semibold mt-0.5">{b.serviceName} (₹{b.price})</div>
+                        <div className="text-[11px] text-slate-500">📞 {b.customerPhone} | 📍 {b.address}</div>
+                        <div className="text-[10px] text-slate-400">स्लॉट: {b.slot}</div>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-black ${
+                        b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                        b.status === 'On The Way' ? 'bg-purple-100 text-purple-800' :
+                        b.status === 'Confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {b.status}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-1.5 pt-2 border-t flex-wrap">
+                      <button onClick={() => updateStatus(b.docId, 'Confirmed')} className="bg-blue-800 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        स्वीकार (Confirm)
+                      </button>
+                      <button onClick={() => updateStatus(b.docId, 'On The Way')} className="bg-purple-700 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        रास्ते में (On The Way)
+                      </button>
+                      <button onClick={() => updateStatus(b.docId, 'Completed')} className="bg-emerald-600 text-white text-[10px] px-2.5 py-1 rounded font-bold">
+                        पूरा हुआ (Done)
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="space-y-3">
+            <h2 className="font-black text-base text-slate-800">मेरे आर्डर व लाइव ट्रैकिंग</h2>
+            {!user ? (
+              <div className="bg-white p-6 rounded-2xl text-center space-y-2 border">
+                <p className="text-xs text-slate-500">अपने आर्डर देखने के लिए पहले लॉगिन करें</p>
+                <button onClick={() => setShowLogin(true)} className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg">
+                  लॉगिन करें
+                </button>
+              </div>
+            ) : (
+              bookings.filter(b => b.customerPhone === user.phone).map((b) => (
+                <div key={b.docId} className="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
+                      <h4 className="font-black text-sm text-slate-900">{b.serviceName}</h4>
+                    </div>
+                    <span className="text-sm font-black text-slate-900">₹{b.price}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">लाइव स्टेटस</span>
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-blue-900 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> दर्ज हुई</span>
+                      <span className={b.status !== 'Placed' ? 'text-blue-900' : 'text-slate-300'}>स्वीकृत</span>
+                      <span className={b.status === 'On The Way' || b.status === 'Completed' ? 'text-purple-700 flex items-center gap-1' : 'text-slate-300'}><Truck className="w-3.5 h-3.5" /> रास्ते में</span>
+                      <span className={b.status === 'Completed' ? 'text-emerald-600 flex items-center gap-1' : 'text-slate-300'}><CheckCircle2 className="w-3.5 h-3.5" /> पूरा</span>
+                    </div>
+
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-500 ${
+                        b.status === 'Placed' ? 'w-1/4 bg-yellow-400' :
+                        b.status === 'Confirmed' ? 'w-2/4 bg-blue-600' :
+                        b.status === 'On The Way' ? 'w-3/4 bg-purple-600' : 'w-full bg-emerald-600'
+                      }`} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'home' && (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-5 rounded-2xl shadow-lg">
+              <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                ★ डोरस्टेप इलेक्ट्रीशियन सेवा
+              </span>
+              <h1 className="text-xl font-black mt-2">प्रमाणित इलेक्ट्रीशियन और 100% असली सामान</h1>
+              <p className="text-xs text-blue-200 mt-1">शॉर्ट सर्किट, पंखा, मोटर, इनवर्टर व वायरिंग रिपेयर</p>
+              
+              <div className="flex gap-2 mt-4">
+                <a href={`tel:${ADMIN_PHONE}`} className="bg-yellow-400 text-blue-950 text-xs font-black px-3.5 py-2 rounded-xl flex items-center gap-1 shadow">
+                  <PhoneCall className="w-3.5 h-3.5" /> {ADMIN_PHONE}
+                </a>
+                <a href={`https://wa.me/91${ADMIN_PHONE}?text=नमस्ते,%20मुझे%20इलेक्ट्रीशियन%20चाहिए`} className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow">
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं</h2>
+              {services.map((s) => (
+                <div key={s.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
+                    <div className="text-xs font-black text-blue-800 mt-0.5">₹{s.price}</div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      if (!user) {
+                        alert("सर्विस बुक करने के लिए कृपया पहले नाम और मोबाइल नंबर से लॉगिन करें!");
+                        setShowLogin(true);
+                      } else {
+                        setSelectedService(s);
+                      }
+                    }} 
+                    className="bg-blue-900 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow"
+                  >
+                    बुक करें
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <h2 className="font-black text-sm text-slate-800">सामान स्टोर</h2>
+              {products.map((p) => (
+                <div key={p.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{p.brand}</span>
+                    <h3 className="font-bold text-xs text-slate-900">{p.name}</h3>
+                    <div className="text-sm font-black text-slate-900 mt-0.5">₹{p.price}</div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const msg = `🛒 *सामान आर्डर:* ${p.name} (मूल्य: ₹${p.price})`;
+                      window.open(`https://wa.me/91${ADMIN_PHONE}?text=${encodeURIComponent(msg)}`, '_blank');
+                    }} 
+                    className="bg-yellow-400 text-blue-950 font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1 shadow"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" /> खरीदें
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {showLogin && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleAuth} className="bg-white p-6 rounded-2xl w-full max-w-xs space-y-3.5 shadow-2xl relative text-xs">
+            <button type="button" onClick={() => setShowLogin(false)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <div className="w-10 h-10 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto mb-1.5">
+                <User className="w-5 h-5" />
+              </div>
+              <h3 className="font-black text-base text-slate-900">रजिस्ट्रेशन / लॉगिन</h3>
+              <p className="text-[11px] text-slate-500">लाइव आर्डर ट्रैकिंग के लिए</p>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">आपका नाम (Full Name)</label>
+              <input required type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="जैसे: राहुल शर्मा" className="w-full p-2.5 border rounded-lg font-semibold" />
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">10 अंकों का मोबाइल नंबर</label>
+              <input required type="tel" maxLength={10} value={authPhone} onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))} placeholder="जैसे: 98290XXXXX" className="w-full p-2.5 border rounded-lg font-bold" />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">एडमिन के लिए: <strong>6367626276</strong></span>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">4-अंकों का गुप्त पिन (PIN)</label>
+              <input required type="password" maxLength={4} value={authPin} onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, ''))} placeholder="****" className="w-full p-2.5 border rounded-lg text-center tracking-widest font-black text-base" />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">एडमिन पिन: <strong>2026</strong></span>
+            </div>
+
+            <button type="submit" className="w-full bg-blue-900 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              रजिस्टर / लॉगिन करें
+            </button>
+          </form>
+        </div>
+      )}
+
+      {selectedService && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleBooking} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
+            <button type="button" onClick={() => setSelectedService(null)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-sm text-slate-900">सर्विस बुकिंग</h3>
+            <p className="text-xs text-blue-800 font-bold">{selectedService.name} (₹{selectedService.price})</p>
+
+            <div className="bg-slate-50 p-2.5 rounded-lg border text-slate-600">
+              <div><strong>ग्राहक:</strong> {user?.name}</div>
+              <div><strong>फोन:</strong> {user?.phone}</div>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">समय स्लॉट चुनें</label>
+              <select name="custSlot" className="w-full p-2 border rounded-lg font-semibold">
+                <option>सुबह (9:00 AM - 1:00 PM)</option>
+                <option>दोपहर (1:00 PM - 5:00 PM)</option>
+                <option>शाम (5:00 PM - 8:00 PM)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">मकान नंबर, गली व लैंडमार्क</label>
+              <textarea required name="custAddr" rows={2} placeholder="पूरा पता दर्ज करें" className="w-full p-2 border rounded-lg"></textarea>
+            </div>
+
+            <button type="submit" className="w-full bg-blue-900 hover:bg-blue-950 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              कन्फर्म बुकिंग (Live Cloud Sync)
+            </button>
+          </form>
+        </div>
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around py-2.5 z-40 shadow-lg">
+        <button onClick={() => setActiveTab('home')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'home' ? 'text-blue-900' : 'text-slate-400'}`}>
+          <Zap className="w-4 h-4" /> होम
+        </button>
+        <button onClick={() => setActiveTab('orders')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'orders' ? 'text-blue-900' : 'text-slate-400'}`}>
+          <Clock className="w-4 h-4" /> मेरे आर्डर
+        </button>
+        {user?.role === 'admin' ? (
+          <button onClick={() => setActiveTab('admin')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'admin' ? 'text-yellow-600' : 'text-slate-400'}`}>
+            <LayoutDashboard className="w-4 h-4" /> एडमिन
+          </button>
+        ) : (
+          <button onClick={() => setShowLogin(true)} className="text-xs font-bold flex flex-col items-center gap-0.5 text-slate-400">
+            <User className="w-4 h-4" /> {user ? 'प्रोफाइल' : 'लॉगिन'}
+          </button>
+        )}
+      </nav>
+    </div>
+  );
+}
