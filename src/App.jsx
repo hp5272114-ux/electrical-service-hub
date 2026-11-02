@@ -9,7 +9,8 @@ import {
   PhoneCall, MessageCircle, AlertTriangle, User, X, CheckCircle2, 
   Clock, Truck, Star, AlertCircle, Edit3, Trash2, PlusCircle, 
   Megaphone, Shield, Search, TrendingUp, Camera, QrCode, 
-  FileText, Check, Send, DollarSign, Image 
+  FileText, Check, Send, RotateCcw, Lock, ChevronRight, Calendar, 
+  Info, CheckSquare, Sparkles 
 } from 'lucide-react';
 
 const ADMIN_PHONE = "6367626276";
@@ -28,7 +29,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// इमेज को सुरक्षित रूप से कंप्रेस करके बेस64 में बदलने का फंक्शन
+// इमेज को सुरक्षित रूप से कंप्रेस करने का फंक्शन
 const compressImage = (file, callback) => {
   if (!file) return;
   const reader = new FileReader();
@@ -69,11 +70,14 @@ export default function App() {
   const [broadcast, setBroadcast] = useState({ text: "गर्मी स्पेशल: पंखा रिपेयरिंग पर 20% की छूट!", active: true });
   const [paymentConfig, setPaymentConfig] = useState({ upiId: "6367626276@upi", upiName: "Electrical Service Hub" });
 
-  // Modals
-  const [selectedService, setSelectedService] = useState(null);
-  const [billModalBooking, setBillModalBooking] = useState(null);
-  const [customerPayBooking, setCustomerPayBooking] = useState(null);
-  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  // Modals & Detailed Views
+  const [detailService, setDetailService] = useState(null); // सर्विस डिटेल व्यू
+  const [selectedService, setSelectedService] = useState(null); // बुकिंग फॉर्म
+  const [billModalBooking, setBillModalBooking] = useState(null); // एडमिन बिल व फोटो
+  const [customerPayBooking, setCustomerPayBooking] = useState(null); // ग्राहक पेमेंट
+  const [reviewModalBooking, setReviewModalBooking] = useState(null); // रेटिंग
+  const [custDetailBooking, setCustDetailBooking] = useState(null); // ग्राहक आर्डर फुल डिटेल
+  const [adminDetailBooking, setAdminDetailBooking] = useState(null); // एडमिन आर्डर फुल डिटेल
   const [editItem, setEditItem] = useState(null);
   const [showAddService, setShowAddService] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -98,7 +102,7 @@ export default function App() {
   const [reviewText, setReviewText] = useState('');
   const [complaintText, setComplaintText] = useState('');
 
-  // 1. SPLASH SCREEN
+  // 1. SPLASH SCREEN (2.5s)
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
     return () => clearTimeout(timer);
@@ -115,10 +119,34 @@ export default function App() {
     const unsubServices = onSnapshot(collection(db, "services"), async (snap) => {
       if (snap.empty) {
         const initial = [
-          { name: "Ceiling Fan Repair / पंखा रिपेयर", price: 199, visiting: 99 },
-          { name: "Short Circuit Check / वायरिंग जांच", price: 399, visiting: 149 },
-          { name: "Inverter Setup / इनवर्टर व बैटरी", price: 499, visiting: 149 },
-          { name: "MCB Box & Wiring / स्विच बोर्ड फिटिंग", price: 299, visiting: 99 }
+          { 
+            name: "Ceiling Fan Repair / पंखा रिपेयर", 
+            price: 199, 
+            visiting: 99, 
+            description: "सीलिंग पंखे की आवाज ठीक करना, बैरिंग व कैपेसिटर रिप्लेसमेंट और स्पीड चेक।",
+            includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर व बैरिंग जांच", "30 दिन की रिपेयर वारंटी"]
+          },
+          { 
+            name: "Short Circuit & Rewiring / वायरिंग जांच", 
+            price: 399, 
+            visiting: 149, 
+            description: "एमसीबी ट्रिपिंग, स्पार्किंग, न्यूट्रल लीकेज व शॉर्ट सर्किट की डिजिटल मल्टीमीटर से जांच।",
+            includes: ["शॉर्ट सर्किट प्वाइंट डिटेक्शन", "सुरक्षा लोड टेस्टिंग", "अर्थिंग चेकिंग"]
+          },
+          { 
+            name: "Inverter Setup / इनवर्टर व बैटरी फिटिंग", 
+            price: 499, 
+            visiting: 149, 
+            description: "घर के मेन लोड के साथ इनवर्टर व ड्यूल बैटरी का हैवी केबल कनेक्शन व बाईपास सेटअप।",
+            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल इनवर्टर टेस्टिंग"]
+          },
+          { 
+            name: "MCB Box & Wiring / स्विच बोर्ड फिटिंग", 
+            price: 299, 
+            visiting: 99, 
+            description: "मॉड्यूलर स्विच, डीपी स्विच, एमसीबी चेंजओवर और जल चुके सॉकेट का रिप्लेसमेंट।",
+            includes: ["पुराने बोर्ड का कनेक्शन चेक", "सुरक्षित अर्थिंग वायर", "ब्रांडेड फिटिंग"]
+          }
         ];
         for (const s of initial) await addDoc(collection(db, "services"), s);
       } else {
@@ -160,7 +188,7 @@ export default function App() {
 
   // 3. METRICS
   const totalRevenue = bookings
-    .filter(b => b.paymentStatus === 'paid' || b.status === 'Completed')
+    .filter(b => b.paymentStatus === 'paid')
     .reduce((sum, b) => sum + (Number(b.finalTotal || b.price) || 0), 0);
 
   const pendingCount = bookings.filter(b => b.status === 'Placed').length;
@@ -170,7 +198,7 @@ export default function App() {
   // 4. AUTH
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!nameInput.trim() || phoneInput.length !== 10 || pinInput.length !== 4) return alert("सभी फील्ड सही भरें!");
+    if (!nameInput.trim() || phoneInput.length !== 10 || pinInput.length !== 4) return alert("सभी जानकारी सही भरें!");
     if (pinInput !== confirmPinInput) return alert("दोनों पिन एक जैसे होने चाहिए!");
 
     setAuthLoading(true);
@@ -295,18 +323,18 @@ export default function App() {
 
     try {
       await updateDoc(doc(db, "bookings", billModalBooking.docId), {
-        beforePhoto: beforePhoto || null,
-        afterPhoto: afterPhoto || null,
-        workDetails: workDetails || "कार्य सफलतापूर्वक पूर्ण हुआ।",
+        beforePhoto: beforePhoto || billModalBooking.beforePhoto || null,
+        afterPhoto: afterPhoto || billModalBooking.afterPhoto || null,
+        workDetails: workDetails || billModalBooking.workDetails || "कार्य सफलतापूर्वक पूर्ण हुआ।",
         labourFee: Number(labourFee),
         materialFee: Number(materialFee),
         visitFee: Number(visitFee),
         finalTotal: total,
         status: "Completed",
         isBilled: true,
-        paymentStatus: "unpaid"
+        paymentStatus: billModalBooking.paymentStatus || "unpaid"
       });
-      alert(`✔ फाइनल बिल ₹${total} जारी कर दिया गया है। ग्राहक को पेमेंट व फोटो दिखेंगे।`);
+      alert(`✔ फाइनल बिल ₹${total} जारी हो चुका है। अब फोटो व विवरण लॉक हो गए हैं।`);
       setBillModalBooking(null);
       setBeforePhoto('');
       setAfterPhoto('');
@@ -316,7 +344,38 @@ export default function App() {
     }
   };
 
-  // 7. CUSTOMER CONFIRMS PAYMENT (CASH OR ONLINE)
+  // 7. ADMIN: REOPEN SERVICE (फोटो व बिल अनलॉक करना)
+  const handleReopenService = async (booking) => {
+    if (!window.confirm("क्या आप इस सर्विस को दोबारा खोलना (Reopen) चाहते हैं? इससे फोटो व बिल दोबारा अनलॉक हो जाएंगे।")) return;
+    try {
+      await updateDoc(doc(db, "bookings", booking.docId), {
+        status: "On The Way",
+        isBilled: false, // Unlocks upload & billing!
+        reopenedAt: Date.now()
+      });
+      alert("✔ सर्विस दोबारा खोल दी गई है! अब आप नया फोटो व बिल अपडेट कर सकते हैं।");
+      if (adminDetailBooking) setAdminDetailBooking(null);
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
+
+  // 8. ADMIN: MANAGE PAYMENT STATUS (PAID vs UNPAID)
+  const handleTogglePaymentStatus = async (booking, targetStatus) => {
+    try {
+      await updateDoc(doc(db, "bookings", booking.docId), {
+        paymentStatus: targetStatus
+      });
+      alert(`✔ पेमेंट स्थिति '${targetStatus === 'paid' ? 'भुगतान पूर्ण (Paid)' : 'लंबित (Unpaid)}' सेट कर दी गई है! ग्राहक को तुरंत अपडेट दिखेगा।`);
+      if (adminDetailBooking) {
+        setAdminDetailBooking({ ...adminDetailBooking, paymentStatus: targetStatus });
+      }
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
+
+  // 9. CUSTOMER PAYMENT CONFIRMATION
   const handleCustomerPayment = async (mode) => {
     if (!customerPayBooking) return;
     try {
@@ -326,14 +385,14 @@ export default function App() {
       });
       alert(mode === 'cash' 
         ? "✔ आपने कैश विकल्प चुना है। कृपया इलेक्ट्रीशियन को नकद राशि दें।" 
-        : "🎉 ऑनलाइन UPI पेमेंट सफलतापूर्वक दर्ज हो गई है! धन्यवाद।");
+        : "🎉 ऑनलाइन UPI पेमेंट दर्ज हो चुकी है! एडमिन द्वारा सत्यापन होते ही रसीद लॉक होगी।");
       setCustomerPayBooking(null);
     } catch (err) {
       alert("एरर: " + err.message);
     }
   };
 
-  // 8. RATING
+  // 10. RATING SUBMIT
   const submitReview = async (e) => {
     e.preventDefault();
     if (!reviewModalBooking) return;
@@ -351,7 +410,7 @@ export default function App() {
     }
   };
 
-  // ================= SPLASH =================
+  // ================= 1. SPLASH SCREEN =================
   if (showSplash) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0B1E3D] via-[#102A56] to-[#1E3A8A] flex flex-col items-center justify-center p-6 text-white text-center">
@@ -368,7 +427,7 @@ export default function App() {
     );
   }
 
-  // ================= AUTH =================
+  // ================= 2. MANDATORY AUTH =================
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 font-sans">
@@ -426,7 +485,7 @@ export default function App() {
     );
   }
 
-  // ================= MAIN APP =================
+  // ================= 3. MAIN APP UI =================
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20 font-sans">
       
@@ -438,7 +497,7 @@ export default function App() {
           </div>
           <div>
             <span className="font-black text-base block leading-none">विद्युत सेवा हब</span>
-            <span className="text-[9px] text-yellow-300 font-bold uppercase">Work Proof & Live Billing</span>
+            <span className="text-[9px] text-yellow-300 font-bold uppercase">Executive Cloud Hub</span>
           </div>
         </div>
 
@@ -450,7 +509,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Offer Strip */}
+      {/* Offer Ribbon */}
       {broadcast.active && broadcast.text && (
         <div className="bg-yellow-400 text-blue-950 px-4 py-2 font-black text-xs flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 truncate">
@@ -464,7 +523,7 @@ export default function App() {
       {/* Main Container */}
       <main className="max-w-xl mx-auto p-4 space-y-4">
         
-        {/* SOS */}
+        {/* SOS Button */}
         <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-3.5 rounded-2xl shadow-lg flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <div className="bg-white/20 p-2 rounded-xl animate-pulse">
@@ -478,11 +537,12 @@ export default function App() {
           <a href={`tel:${ADMIN_PHONE}`} className="bg-yellow-400 text-blue-950 font-black text-xs px-3.5 py-2 rounded-xl shadow">SOS कॉल</a>
         </div>
 
-        {/* ================= ADMIN WORKSPACE ================= */}
+        {/* ============================================================== */}
+        {/* ==================== 🏆 ADMIN WORKSPACE ======================= */}
+        {/* ============================================================== */}
         {activeTab === 'admin' && user.role === 'admin' && (
           <div className="space-y-4">
             
-            {/* Admin Header */}
             <div className="bg-gradient-to-br from-[#0B1E3D] via-[#102A56] to-[#1E3A8A] text-white p-5 rounded-3xl shadow-xl border border-yellow-400/30 flex justify-between items-start">
               <div>
                 <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">Executive Center</span>
@@ -497,18 +557,18 @@ export default function App() {
             {/* Metrics */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-4 rounded-2xl border shadow-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase">कुल कमाई (Revenue)</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase">कुल कमाई (Received)</span>
                 <div className="text-2xl font-black text-slate-900 mt-1">₹{totalRevenue}</div>
-                <span className="text-[10px] text-emerald-600 font-bold">✔ फाइनल बिलिंग से</span>
+                <span className="text-[10px] text-emerald-600 font-bold">✔ सत्यापित भुगतानों से</span>
               </div>
               <div className="bg-white p-4 rounded-2xl border shadow-sm">
                 <span className="text-[11px] font-bold text-slate-400 uppercase">नये आर्डर (Pending)</span>
                 <div className="text-2xl font-black text-amber-600 mt-1">{pendingCount}</div>
-                <span className="text-[10px] text-amber-700 font-bold">तुरंत स्वीकार करें</span>
+                <span className="text-[10px] text-amber-700 font-bold">तुरंत एक्शन लें</span>
               </div>
             </div>
 
-            {/* Admin Subtabs */}
+            {/* Subtabs */}
             <div className="bg-white p-1 rounded-2xl border flex justify-between shadow-sm overflow-x-auto text-[11px] font-bold">
               <button onClick={() => setAdminSubTab('metrics')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'metrics' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>📋 आर्डर्स व बिलिंग ({bookings.length})</button>
               <button onClick={() => setAdminSubTab('payment')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'payment' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>💳 UPI व QR सेटिंग</button>
@@ -516,95 +576,105 @@ export default function App() {
               <button onClick={() => setAdminSubTab('products')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'products' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>📦 स्टोर</button>
             </div>
 
-            {/* 1. ORDERS, BILLING & WORK PROOF LIST */}
+            {/* 1. ORDERS LIST WITH STATUS & REOPEN */}
             {adminSubTab === 'metrics' && (
               <div className="bg-white p-4 rounded-3xl border space-y-3 shadow-sm">
-                <h3 className="font-black text-xs text-slate-800">लाइव आर्डर, काम का फोटो प्रूफ व बिलिंग</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="font-black text-xs text-slate-800">लाइव आर्डर्स (विवरण देखने के लिए आर्डर पर टैप करें)</h3>
+                  <span className="text-[10px] text-blue-900 font-bold">क्लिक = फुल व्यू</span>
+                </div>
 
                 {bookings.map((b) => (
                   <div key={b.docId} className="p-3.5 bg-slate-50 border rounded-2xl space-y-2.5 text-xs">
-                    <div className="flex justify-between items-start">
+                    
+                    {/* Clickable Header opens Full Admin Detail Sheet */}
+                    <div onClick={() => setAdminDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-100 p-1 rounded-xl transition">
                       <div>
-                        <span className="font-black text-blue-900 text-sm">#{b.bookingId}</span> • <strong>{b.customerName}</strong>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-blue-900 text-sm">#{b.bookingId}</span>
+                          <span className="text-slate-400">•</span>
+                          <strong className="text-slate-800">{b.customerName}</strong>
+                        </div>
                         <div className="text-slate-800 font-bold mt-0.5">{b.serviceName}</div>
-                        <div className="text-[11px] text-slate-500">📞 {b.customerPhone} | 📍 {b.address}</div>
-                        {b.finalTotal && (
-                          <div className="text-xs font-black text-emerald-700 mt-1">
-                            फाइनल बिल: ₹{b.finalTotal} ({b.paymentStatus === 'paid' ? '✔ पेड' : b.paymentMode === 'cash' ? '💵 कैश पेंडिंग' : '⏳ अनपेड'})
-                          </div>
-                        )}
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {b.createdAt ? new Date(b.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+                        </div>
                       </div>
-                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${
-                        b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
-                        b.status === 'On The Way' ? 'bg-purple-100 text-purple-800' :
-                        b.status === 'Confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {b.status}
-                      </span>
+                      <div className="text-right">
+                        <span className={`text-[10px] px-2.5 py-1 rounded-full font-black block ${
+                          b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                          b.status === 'On The Way' ? 'bg-purple-100 text-purple-800' :
+                          b.status === 'Confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {b.status}
+                        </span>
+                        <span className={`text-[9px] font-bold mt-1 inline-block ${b.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-rose-600'}`}>
+                          {b.paymentStatus === 'paid' ? '✔ पेड (Paid)' : '⏳ अनपेड'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Before & After Photos Preview in Admin */}
-                    {(b.beforePhoto || b.afterPhoto) && (
-                      <div className="grid grid-cols-2 gap-2 bg-white p-2 rounded-xl border">
-                        {b.beforePhoto && (
-                          <div>
-                            <span className="text-[9px] font-bold text-slate-400 block">काम से पहले (Before):</span>
-                            <img src={b.beforePhoto} alt="Before" className="h-24 w-full object-cover rounded-lg mt-1" />
-                          </div>
-                        )}
-                        {b.afterPhoto && (
-                          <div>
-                            <span className="text-[9px] font-bold text-emerald-600 block">काम के बाद (After):</span>
-                            <img src={b.afterPhoto} alt="After" className="h-24 w-full object-cover rounded-lg mt-1" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {b.workDetails && (
-                      <div className="bg-slate-100 p-2 rounded-lg text-[11px] text-slate-700">
-                        <strong>काम का विवरण:</strong> {b.workDetails}
-                      </div>
-                    )}
-
-                    {/* Operational Actions */}
-                    <div className="flex gap-1.5 pt-2 border-t flex-wrap">
+                    {/* Operational Action Controls */}
+                    <div className="flex gap-1.5 pt-2 border-t flex-wrap items-center">
                       <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "Confirmed" })} className="bg-blue-800 text-white text-[10px] px-2.5 py-1 rounded-lg font-bold">
                         स्वीकारें
                       </button>
-                      <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "On The Way" })} className="bg-purple-700 text-white text-[10px] px-2.5 py-1 rounded-lg font-bold">
-                        रास्ते में
-                      </button>
                       
-                      {/* Button to Open Final Bill & Photo Upload */}
+                      {/* Photo & Bill Button (LOCKED if already billed, unless reopened!) */}
+                      {b.isBilled && b.status === 'Completed' ? (
+                        <div className="flex items-center gap-1">
+                          <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> फोटो व बिल लॉक है
+                          </span>
+                          <button 
+                            onClick={() => handleReopenService(b)}
+                            className="bg-amber-500 hover:bg-amber-600 text-blue-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow"
+                          >
+                            <RotateCcw className="w-3 h-3" /> री-ओपन (अनलॉक)
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setBillModalBooking(b);
+                            setLabourFee(b.labourFee || b.price || 199);
+                            setMaterialFee(b.materialFee || 0);
+                            setVisitFee(b.visitFee || 99);
+                            setBeforePhoto(b.beforePhoto || '');
+                            setAfterPhoto(b.afterPhoto || '');
+                            setWorkDetails(b.workDetails || '');
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-3 py-1 rounded-lg font-bold flex items-center gap-1 shadow"
+                        >
+                          <Camera className="w-3 h-3 text-yellow-300" /> फोटो व बिल अपलोड
+                        </button>
+                      )}
+
+                      {/* Payment Verification Quick Toggle */}
                       <button 
-                        onClick={() => {
-                          setBillModalBooking(b);
-                          setLabourFee(b.price || 199);
-                          setMaterialFee(0);
-                          setVisitFee(99);
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-3 py-1 rounded-lg font-bold flex items-center gap-1 shadow ml-auto"
+                        onClick={() => handleTogglePaymentStatus(b, b.paymentStatus === 'paid' ? 'unpaid' : 'paid')}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ml-auto ${
+                          b.paymentStatus === 'paid' 
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                            : 'bg-rose-600 text-white shadow'
+                        }`}
                       >
-                        <Camera className="w-3 h-3 text-yellow-300" /> फाइनल बिल व फोटो प्रूफ
+                        {b.paymentStatus === 'paid' ? '✔ पेमेंट पूर्ण (Click to Unpay)' : 'भुगतान प्राप्त हुआ मार्क करें'}
                       </button>
                     </div>
+
                   </div>
                 ))}
               </div>
             )}
 
-            {/* 2. ADMIN UPI & QR CODE SETTINGS */}
+            {/* 2. ADMIN UPI & QR */}
             {adminSubTab === 'payment' && (
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-4 shadow-sm">
+              <div className="bg-white p-5 rounded-3xl border space-y-4 shadow-sm">
                 <div className="flex items-center gap-2">
                   <QrCode className="w-5 h-5 text-emerald-600" />
                   <h3 className="font-black text-sm text-slate-800">एडमिन UPI व QR कोड सेटिंग्स</h3>
                 </div>
-                <p className="text-xs text-slate-500">
-                  यहाँ अपना फोनपे, गूगल पे या बैंक का UPI ID डालें। ग्राहक को इसी ID का QR कोड दिखेगा!
-                </p>
-
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   const f = e.target;
@@ -612,29 +682,18 @@ export default function App() {
                     upiId: f.upiId.value.trim(),
                     upiName: f.upiName.value.trim()
                   });
-                  alert("✔ आपकी नई UPI ID सफलतापूर्वक सेव हो गई है!");
+                  alert("✔ आपकी नई UPI ID सेव हो गई है!");
                 }} className="space-y-3 text-xs">
                   <div>
-                    <label className="block font-bold mb-1">आपका UPI ID (VPA)</label>
-                    <input required name="upiId" defaultValue={paymentConfig.upiId} placeholder="जैसे: 6367626276@upi या yourname@okaxis" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+                    <label className="block font-bold mb-1">आपका UPI ID</label>
+                    <input required name="upiId" defaultValue={paymentConfig.upiId} className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
                   </div>
                   <div>
-                    <label className="block font-bold mb-1">दुकान / खाताधारक का नाम</label>
-                    <input required name="upiName" defaultValue={paymentConfig.upiName} placeholder="जैसे: Electrical Service Hub" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+                    <label className="block font-bold mb-1">खाताधारक का नाम</label>
+                    <input required name="upiName" defaultValue={paymentConfig.upiName} className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
                   </div>
-
-                  <div className="p-3 bg-slate-50 border rounded-2xl text-center space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">वर्तमान लाइव QR कोड प्रीव्यू:</span>
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=${paymentConfig.upiId}%26pn=${encodeURIComponent(paymentConfig.upiName)}%26cu=INR`} 
-                      alt="UPI QR Preview" 
-                      className="w-32 h-32 mx-auto rounded-lg border shadow-sm"
-                    />
-                    <div className="font-mono text-xs font-bold text-slate-800">{paymentConfig.upiId}</div>
-                  </div>
-
-                  <button type="submit" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 rounded-xl shadow text-xs">
-                    सेव करें (Update UPI Globally)
+                  <button type="submit" className="w-full bg-emerald-700 text-white font-black py-2.5 rounded-xl shadow text-xs">
+                    सेव करें (Update UPI)
                   </button>
                 </form>
               </div>
@@ -693,22 +752,38 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= CUSTOMER ORDERS VIEW ================= */}
+        {/* ============================================================== */}
+        {/* ================== CUSTOMER ORDERS VIEW ====================== */}
+        {/* ============================================================== */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
-            <h2 className="font-black text-base text-slate-800">मेरे आर्डर व लाइव बिलिंग</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="font-black text-base text-slate-800">मेरे आर्डर व लाइव बिलिंग</h2>
+              <span className="text-[10px] text-blue-900 font-bold">आर्डर पर क्लिक करें</span>
+            </div>
 
             {bookings.filter(b => b.customerPhone === user.phone).map((b) => (
               <div key={b.docId} className="bg-white p-4 rounded-3xl border shadow-sm space-y-3">
-                <div className="flex justify-between items-center">
+                
+                {/* Clickable order card to open full customer detail modal */}
+                <div onClick={() => setCustDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-50 p-1 rounded-2xl transition">
                   <div>
                     <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
                     <h4 className="font-black text-sm text-slate-900">{b.serviceName}</h4>
+                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {b.createdAt ? new Date(b.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+                    </div>
                   </div>
-                  <span className="text-sm font-black text-slate-900">₹{b.finalTotal || b.price}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-slate-900">₹{b.finalTotal || b.price}</span>
+                    <span className={`text-[10px] font-black block mt-0.5 ${b.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {b.paymentStatus === 'paid' ? '✔ भुगतान पूर्ण' : '⏳ भुगतान बाकी'}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Tracking Bar */}
+                {/* Tracking Progress */}
                 <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
                   <div className="flex items-center justify-between text-[11px] font-bold">
                     <span className="text-blue-900 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> दर्ज</span>
@@ -726,54 +801,24 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Before & After Photo Proof to Customer */}
-                {(b.beforePhoto || b.afterPhoto) && (
-                  <div className="border border-slate-200 p-2.5 rounded-2xl bg-slate-50 space-y-2">
-                    <span className="text-[10px] font-bold text-blue-900 uppercase block">प्रमाणित कार्य फोटो प्रूफ (Photo Proof):</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {b.beforePhoto && (
-                        <div>
-                          <span className="text-[9px] text-slate-400 block">काम से पहले:</span>
-                          <img src={b.beforePhoto} alt="Before" className="h-24 w-full object-cover rounded-xl mt-0.5" />
-                        </div>
-                      )}
-                      {b.afterPhoto && (
-                        <div>
-                          <span className="text-[9px] text-emerald-600 font-bold block">काम के बाद (ठीक हुआ):</span>
-                          <img src={b.afterPhoto} alt="After" className="h-24 w-full object-cover rounded-xl mt-0.5" />
-                        </div>
-                      )}
-                    </div>
-                    {b.workDetails && <p className="text-[11px] text-slate-600 italic">"{b.workDetails}"</p>}
-                  </div>
-                )}
+                {/* Final Bill Action or View Details */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCustDetailBooking(b)} 
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1"
+                  >
+                    <Info className="w-3.5 h-3.5 text-blue-900" /> फोटो व रसीद देखें
+                  </button>
 
-                {/* Final Bill Payment Action */}
-                {b.isBilled && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-emerald-950">फाइनल बिलिंग राशि:</span>
-                      <span className="font-black text-base text-emerald-800">₹{b.finalTotal}</span>
-                    </div>
-
-                    {b.paymentStatus === 'paid' ? (
-                      <div className="text-center font-bold text-emerald-700 text-xs py-1 flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> ऑनलाइन भुगतान प्राप्त हुआ (Paid)
-                      </div>
-                    ) : b.paymentMode === 'cash' ? (
-                      <div className="text-center font-bold text-amber-800 text-xs py-1">
-                        💵 नकद भुगतान चुना गया (इलेक्ट्रीशियन को कैश दें)
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setCustomerPayBooking(b)} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs shadow-md flex items-center justify-center gap-1.5"
-                      >
-                        <QrCode className="w-4 h-4" /> बिल भुगतान करें (Cash / Online UPI)
-                      </button>
-                    )}
-                  </div>
-                )}
+                  {b.isBilled && b.paymentStatus !== 'paid' && (
+                    <button 
+                      onClick={() => setCustomerPayBooking(b)} 
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1"
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> बिल भुगतान (₹{b.finalTotal})
+                    </button>
+                  )}
+                </div>
 
                 {/* Rating Button */}
                 {b.status === 'Completed' && !b.rating && (
@@ -786,7 +831,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= HOME VIEW ================= */}
+        {/* ============================================================== */}
+        {/* ===================== CUSTOMER HOME VIEW ===================== */}
+        {/* ============================================================== */}
         {activeTab === 'home' && (
           <div className="space-y-4">
             <div className="relative">
@@ -803,6 +850,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Services with Detail Modal Trigger */}
             <div className="space-y-2.5">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं (Services)</h2>
               {services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => (
@@ -811,11 +859,15 @@ export default function App() {
                     <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
                     <div className="text-xs font-black text-blue-800 mt-0.5">शुरुआती: ₹{s.price} <span className="text-[10px] text-slate-400">(विजिट: ₹{s.visiting || 99})</span></div>
                   </div>
-                  <button onClick={() => setSelectedService(s)} className="bg-[#1E3A8A] text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow">बुक करें</button>
+                  {/* Clicking opens Service Details first */}
+                  <button onClick={() => setDetailService(s)} className="bg-[#1E3A8A] text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1">
+                    विवरण व बुक <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
             </div>
 
+            {/* Products Store */}
             <div className="space-y-2.5 pt-2">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
               {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => (
@@ -833,7 +885,204 @@ export default function App() {
         )}
       </main>
 
-      {/* ================= MODAL: ADMIN GENERATES FINAL BILL & PHOTO PROOF ================= */}
+      {/* ================= MODAL 1: SERVICE DETAILS BEFORE BOOKING ================= */}
+      {detailService && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative">
+            <button onClick={() => setDetailService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
+
+            <div>
+              <span className="text-[10px] bg-blue-100 text-blue-900 font-black px-2.5 py-0.5 rounded-full uppercase">सेवा विवरण</span>
+              <h3 className="font-black text-base text-slate-900 mt-1">{detailService.name}</h3>
+              <div className="text-sm font-black text-blue-900 mt-1">शुरुआती चार्ज: ₹{detailService.price}</div>
+            </div>
+
+            <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border">
+              {detailService.description || "अनुभवी व प्रमाणित इलेक्ट्रीशियन द्वारा सुरक्षित एवं गुणवत्तापूर्ण कार्य।"}
+            </p>
+
+            <div className="space-y-2 text-xs">
+              <span className="font-bold text-slate-800 block">इस सर्विस में क्या शामिल है:</span>
+              {(detailService.includes || ["30 दिन की आधिकारिक गारंटी", "सुरक्षा व लोड टेस्टिंग", "ओरिजिनल स्पेयर पार्ट्स"]).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-slate-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-amber-50 p-2.5 rounded-2xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
+              <div>⚡ <strong>विजिटिंग व जांच शुल्क:</strong> ₹{detailService.visiting || 99} (रिपेयर कराने पर समायोजित)</div>
+              <div>⚡ <strong>पार्ट्स का खर्च:</strong> स्पेयर पार्ट्स लगने पर उसका खर्च फाइनल बिल में जुड़ेगा।</div>
+            </div>
+
+            <button 
+              onClick={() => {
+                setSelectedService(detailService);
+                setDetailService(null);
+              }}
+              className="w-full bg-[#1E3A8A] hover:bg-[#0B1E3D] text-white font-black py-3 rounded-2xl text-xs shadow-lg flex items-center justify-center gap-1.5"
+            >
+              आगे बढ़ें व स्लॉट बुक करें <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL 2: CUSTOMER ORDER FULL DETAILS (DATE, TIME, PHOTOS, BILL) ================= */}
+      {custDetailBooking && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8">
+            <button onClick={() => setCustDetailBooking(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
+
+            <div className="border-b pb-3">
+              <span className="font-mono text-xs font-bold text-blue-900">आर्डर ID: #{custDetailBooking.bookingId}</span>
+              <h3 className="font-black text-base text-slate-900">{custDetailBooking.serviceName}</h3>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <strong>बुकिंग समय:</strong> {custDetailBooking.createdAt ? new Date(custDetailBooking.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                <strong>स्लॉट:</strong> {custDetailBooking.slot} | <strong>पता:</strong> {custDetailBooking.address}
+              </div>
+            </div>
+
+            {/* Photos Display */}
+            {(custDetailBooking.beforePhoto || custDetailBooking.afterPhoto) ? (
+              <div className="space-y-2">
+                <span className="font-bold text-xs text-slate-800 block">काम का प्रमाणित फोटो प्रूफ:</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {custDetailBooking.beforePhoto && (
+                    <div>
+                      <span className="text-[9px] text-slate-400 block">काम से पहले:</span>
+                      <img src={custDetailBooking.beforePhoto} alt="Before" className="h-28 w-full object-cover rounded-xl border mt-0.5" />
+                    </div>
+                  )}
+                  {custDetailBooking.afterPhoto && (
+                    <div>
+                      <span className="text-[9px] text-emerald-600 font-bold block">काम के बाद (ठीक हुआ):</span>
+                      <img src={custDetailBooking.afterPhoto} alt="After" className="h-28 w-full object-cover rounded-xl border mt-0.5" />
+                    </div>
+                  )}
+                </div>
+                {custDetailBooking.workDetails && (
+                  <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border italic">
+                    "{custDetailBooking.workDetails}"
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border text-center">
+                इलेक्ट्रीशियन द्वारा काम पूरा करने पर फोटो प्रूफ यहाँ दिखाई देगा।
+              </p>
+            )}
+
+            {/* Final Bill Breakdown */}
+            {custDetailBooking.isBilled ? (
+              <div className="bg-slate-50 p-3.5 rounded-2xl border text-xs space-y-1.5">
+                <span className="font-bold text-slate-800 block">पक्का फाइनल बिल विवरण:</span>
+                <div className="flex justify-between text-slate-600">
+                  <span>लेबर / सर्विस चार्ज:</span>
+                  <span>₹{custDetailBooking.labourFee}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>स्पेयर पार्ट्स / सामान:</span>
+                  <span>₹{custDetailBooking.materialFee || 0}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>विजिटिंग फीस:</span>
+                  <span>₹{custDetailBooking.visitFee || 0}</span>
+                </div>
+                <div className="border-t pt-1.5 flex justify-between items-center font-black text-sm text-slate-900">
+                  <span>कुल फाइनल बिल:</span>
+                  <span className="text-emerald-700 text-base">₹{custDetailBooking.finalTotal}</span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Payment Status Pill */}
+            <div className={`p-3 rounded-2xl text-center text-xs font-bold border ${
+              custDetailBooking.paymentStatus === 'paid' 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}>
+              {custDetailBooking.paymentStatus === 'paid' 
+                ? '✔ भुगतान पूर्ण हो चुका है (Payment Completed)' 
+                : '⏳ भुगतान लंबित है (Payment Pending)'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL 3: ADMIN FULL ORDER INSPECTOR (STATUS, PHOTOS, REOPEN, PAYMENT) ================= */}
+      {adminDetailBooking && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
+            <button onClick={() => setAdminDetailBooking(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
+
+            <div>
+              <span className="text-[10px] bg-slate-900 text-yellow-400 font-black px-2.5 py-0.5 rounded-full uppercase">Master Order Inspector</span>
+              <h3 className="font-black text-base text-slate-900 mt-1">#{adminDetailBooking.bookingId} - {adminDetailBooking.serviceName}</h3>
+              <p className="text-slate-500">ग्राहक: {adminDetailBooking.customerName} (📞 {adminDetailBooking.customerPhone})</p>
+              <p className="text-slate-500">तारीख/समय: {adminDetailBooking.createdAt ? new Date(adminDetailBooking.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}</p>
+              <p className="text-slate-500">पता: {adminDetailBooking.address}</p>
+            </div>
+
+            {/* Photos Preview */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-2xl border">
+              <div>
+                <span className="text-[9px] font-bold text-slate-400 block">काम से पहले:</span>
+                {adminDetailBooking.beforePhoto ? (
+                  <img src={adminDetailBooking.beforePhoto} alt="Before" className="h-24 w-full object-cover rounded-xl mt-1" />
+                ) : <span className="text-slate-300 italic">फोटो नहीं है</span>}
+              </div>
+              <div>
+                <span className="text-[9px] font-bold text-emerald-600 block">काम के बाद:</span>
+                {adminDetailBooking.afterPhoto ? (
+                  <img src={adminDetailBooking.afterPhoto} alt="After" className="h-24 w-full object-cover rounded-xl mt-1" />
+                ) : <span className="text-slate-300 italic">फोटो नहीं है</span>}
+              </div>
+            </div>
+
+            {/* Billing Overview */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl space-y-1">
+              <div className="flex justify-between font-bold text-blue-950">
+                <span>फाइनल बिल:</span>
+                <span className="text-emerald-800 text-sm">₹{adminDetailBooking.finalTotal || adminDetailBooking.price}</span>
+              </div>
+              <div className="flex justify-between text-slate-600 text-[11px]">
+                <span>भुगतान स्थिति:</span>
+                <strong className={adminDetailBooking.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-rose-600'}>
+                  {adminDetailBooking.paymentStatus === 'paid' ? '✔ पूर्ण (Paid)' : 'लंबित (Unpaid)'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Admin Controls in Inspector */}
+            <div className="space-y-2 pt-2 border-t">
+              <span className="font-bold text-slate-800 block">एडमिन एक्शन कंट्रोल्स:</span>
+              
+              {/* Payment toggle */}
+              <button 
+                onClick={() => handleTogglePaymentStatus(adminDetailBooking, adminDetailBooking.paymentStatus === 'paid' ? 'unpaid' : 'paid')}
+                className="w-full bg-blue-900 text-white font-bold py-2 rounded-xl"
+              >
+                {adminDetailBooking.paymentStatus === 'paid' ? 'भुगतान वापस लंबित (Unpaid) करें' : '✔ भुगतान प्राप्त हुआ (Mark Paid) करें'}
+              </button>
+
+              {/* Reopen service toggle */}
+              <button 
+                onClick={() => handleReopenService(adminDetailBooking)}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-blue-950 font-black py-2 rounded-xl flex items-center justify-center gap-1 shadow"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> सर्विस दोबारा खोलें (Reopen Service)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL 4: ADMIN UPLOADS PHOTO PROOF & GENERATES BILL ================= */}
       {billModalBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <form onSubmit={handleGenerateFinalBill} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative my-8">
@@ -844,14 +1093,12 @@ export default function App() {
               <p className="text-[11px] text-slate-500">बुकिंग: #{billModalBooking.bookingId} ({billModalBooking.customerName})</p>
             </div>
 
-            {/* Photo 1: Before Work */}
             <div className="p-3 bg-slate-50 border rounded-2xl space-y-1.5">
               <label className="block font-bold text-slate-700">1. काम से पहले की फोटो (खराब पार्ट):</label>
               <input type="file" accept="image/*" capture="environment" onChange={(e) => compressImage(e.target.files[0], setBeforePhoto)} className="w-full text-[11px]" />
               {beforePhoto && <img src={beforePhoto} alt="Before preview" className="h-20 rounded-lg mt-1 object-cover" />}
             </div>
 
-            {/* Photo 2: After Work */}
             <div className="p-3 bg-slate-50 border rounded-2xl space-y-1.5">
               <label className="block font-bold text-emerald-800">2. काम के बाद की फोटो (ठीक होने पर):</label>
               <input type="file" accept="image/*" capture="environment" onChange={(e) => compressImage(e.target.files[0], setAfterPhoto)} className="w-full text-[11px]" />
@@ -863,7 +1110,6 @@ export default function App() {
               <textarea required value={workDetails} onChange={(e) => setWorkDetails(e.target.value)} placeholder="जैसे: मोटर कैपेसिटर बदला और नई केबल जोड़ी" rows={2} className="w-full p-2 border rounded-xl" />
             </div>
 
-            {/* Bill Breakdown Inputs */}
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl space-y-2">
               <span className="font-bold text-blue-950 block">बिल चार्ज विवरण (Charges):</span>
               
@@ -878,7 +1124,7 @@ export default function App() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span>विजिटिंग / डिलीवरी फीस:</span>
+                <span>विजिटिंग फीस:</span>
                 <input required type="number" value={visitFee} onChange={(e) => setVisitFee(e.target.value)} className="w-20 p-1.5 border rounded-lg text-right font-bold" />
               </div>
 
@@ -889,13 +1135,13 @@ export default function App() {
             </div>
 
             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl shadow-lg text-xs">
-              ✔ फाइनल बिल जारी करें व ग्राहक को भेजें
+              ✔ फाइनल बिल जारी करें (अपलोड लॉक होगा)
             </button>
           </form>
         </div>
       )}
 
-      {/* ================= MODAL: CUSTOMER PAYS BILL (CASH OR ONLINE) ================= */}
+      {/* ================= MODAL 5: CUSTOMER PAYMENT SHEET ================= */}
       {customerPayBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative">
@@ -906,27 +1152,15 @@ export default function App() {
               <p className="text-xs text-slate-500">इनवॉइस: #{customerPayBooking.bookingId}</p>
             </div>
 
-            {/* Bill Breakdown Receipt */}
             <div className="bg-slate-50 border p-3.5 rounded-2xl text-xs space-y-1.5">
-              <div className="flex justify-between text-slate-600">
-                <span>सर्विस चार्ज:</span>
-                <span>₹{customerPayBooking.labourFee}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>सामान / पार्ट्स:</span>
-                <span>₹{customerPayBooking.materialFee || 0}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>विजिटिंग चार्ज:</span>
-                <span>₹{customerPayBooking.visitFee || 0}</span>
-              </div>
+              <div className="flex justify-between text-slate-600"><span>सर्विस चार्ज:</span><span>₹{customerPayBooking.labourFee}</span></div>
+              <div className="flex justify-between text-slate-600"><span>सामान / पार्ट्स:</span><span>₹{customerPayBooking.materialFee || 0}</span></div>
+              <div className="flex justify-between text-slate-600"><span>विजिटिंग चार्ज:</span><span>₹{customerPayBooking.visitFee || 0}</span></div>
               <div className="border-t pt-1.5 flex justify-between items-center font-black text-sm text-slate-900">
-                <span>कुल देय राशि:</span>
-                <span className="text-base text-emerald-700">₹{customerPayBooking.finalTotal}</span>
+                <span>कुल देय राशि:</span><span className="text-base text-emerald-700">₹{customerPayBooking.finalTotal}</span>
               </div>
             </div>
 
-            {/* Dynamic UPI QR Code using Admin's live UPI ID */}
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
               <span className="text-[10px] font-bold text-emerald-800 uppercase block">PhonePe / GPay / Paytm से स्कैन करें:</span>
               <img 
@@ -944,18 +1178,11 @@ export default function App() {
               </a>
             </div>
 
-            {/* Two Action Payment Choices */}
             <div className="flex gap-2">
-              <button 
-                onClick={() => handleCustomerPayment('cash')}
-                className="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs"
-              >
+              <button onClick={() => handleCustomerPayment('cash')} className="flex-1 bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs">
                 💵 नकद (Cash)
               </button>
-              <button 
-                onClick={() => handleCustomerPayment('upi')}
-                className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-xs"
-              >
+              <button onClick={() => handleCustomerPayment('upi')} className="flex-1 bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs">
                 ✔ UPI पेड किया
               </button>
             </div>
@@ -963,7 +1190,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: BOOKING ================= */}
+      {/* ================= MODAL 6: BOOKING FORM ================= */}
       {selectedService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={handleBooking} className="bg-white p-5 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
@@ -992,7 +1219,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: RATING ================= */}
+      {/* ================= MODAL 7: RATING ================= */}
       {reviewModalBooking && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={submitReview} className="bg-white p-5 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
@@ -1010,7 +1237,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: EDIT ================= */}
+      {/* ================= MODAL 8: EDIT SERVICE/PRODUCT ================= */}
       {editItem && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <form onSubmit={async (e) => {
@@ -1035,7 +1262,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: ADD SERVICE ================= */}
+      {/* ================= MODAL 9: ADD SERVICE ================= */}
       {showAddService && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <form onSubmit={async (e) => {
@@ -1054,7 +1281,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: ADD PRODUCT ================= */}
+      {/* ================= MODAL 10: ADD PRODUCT ================= */}
       {showAddProduct && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <form onSubmit={async (e) => {
