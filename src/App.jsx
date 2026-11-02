@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, doc, setDoc, getDoc, 
-  onSnapshot, updateDoc 
+  onSnapshot, updateDoc, deleteDoc, getDocs 
 } from 'firebase/firestore';
 import { 
   Zap, Wrench, ShoppingBag, LayoutDashboard, LogIn, LogOut, 
   PhoneCall, MessageCircle, AlertTriangle, User, X, CheckCircle2, 
-  Clock, Truck, Star, AlertCircle, MessageSquare, ThumbsUp, Shield 
+  Clock, Truck, Star, AlertCircle, Edit3, Trash2, PlusCircle, 
+  Megaphone, Shield 
 } from 'lucide-react';
 
 const ADMIN_PHONE = "6367626276";
@@ -35,8 +36,19 @@ export default function App() {
 
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTab] = useState('home');
+
+  // Real-time Cloud Data
   const [bookings, setBookings] = useState([]);
+  const [services, setServices] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [broadcast, setBroadcast] = useState({ text: "गर्मी स्पेशल: पंखा रिपेयरिंग पर 20% की छूट!", active: true });
+
+  // Modals & Active Edit States
   const [selectedService, setSelectedService] = useState(null);
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  const [editItem, setEditItem] = useState(null); // { type: 'service' | 'product', data }
+  const [showAddService, setShowAddService] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
 
   // Auth Inputs
   const [nameInput, setNameInput] = useState('');
@@ -45,8 +57,7 @@ export default function App() {
   const [confirmPinInput, setConfirmPinInput] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Review & Complaint Modal
-  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  // Review Inputs
   const [ratingVal, setRatingVal] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [complaintText, setComplaintText] = useState('');
@@ -57,22 +68,72 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 2. REAL-TIME BOOKINGS LISTENER
+  // 2. REAL-TIME CLOUD LISTENERS (Services, Products, Bookings & Broadcast)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "bookings"), (snapshot) => {
-      const live = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+    // A. Listen Bookings
+    const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
+      const live = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       live.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setBookings(live);
     });
-    return () => unsubscribe();
+
+    // B. Listen Services (with auto-seed if empty)
+    const unsubServices = onSnapshot(collection(db, "services"), async (snap) => {
+      if (snap.empty) {
+        // Auto-seed initial services if empty
+        const initial = [
+          { name: "Ceiling Fan Repair / पंखा रिपेयर", price: 199, visiting: 99 },
+          { name: "Short Circuit Check / वायरिंग जांच", price: 399, visiting: 149 },
+          { name: "Inverter Setup / इनवर्टर फिटिंग", price: 499, visiting: 149 },
+          { name: "MCB Box & Wiring / स्विच बोर्ड फिटिंग", price: 299, visiting: 99 }
+        ];
+        for (const s of initial) {
+          await addDoc(collection(db, "services"), s);
+        }
+      } else {
+        setServices(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
+      }
+    });
+
+    // C. Listen Products (with auto-seed if empty)
+    const unsubProducts = onSnapshot(collection(db, "products"), async (snap) => {
+      if (snap.empty) {
+        const initial = [
+          { name: "Polycab 2.5 Sq mm Wire (90m)", brand: "Polycab", price: 1899 },
+          { name: "Havells 32A DP MCB Switch", brand: "Havells", price: 520 },
+          { name: "Anchor Roma 6A Modular Switch Set", brand: "Anchor", price: 310 }
+        ];
+        for (const p of initial) {
+          await addDoc(collection(db, "products"), p);
+        }
+      } else {
+        setProducts(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
+      }
+    });
+
+    // D. Listen Broadcast Offer Banner
+    const unsubBroadcast = onSnapshot(doc(db, "settings", "broadcast"), (snap) => {
+      if (snap.exists()) {
+        setBroadcast(snap.data());
+      } else {
+        setDoc(doc(db, "settings", "broadcast"), { text: "विशेष ऑफर: सभी सर्विस पर 30 दिन की आधिकारिक गारंटी!", active: true });
+      }
+    });
+
+    return () => {
+      unsubBookings();
+      unsubServices();
+      unsubProducts();
+      unsubBroadcast();
+    };
   }, []);
 
   // 3. SECURE AUTH: REGISTRATION
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!nameInput.trim()) return alert("कृपया अपना पूरा नाम लिखें!");
-    if (phoneInput.length !== 10) return alert("कृपया 10 अंकों का मोबाइल नंबर डालें!");
-    if (pinInput.length !== 4) return alert("4 अंकों का सुरक्षित पिन बनाएं!");
+    if (phoneInput.length !== 10) return alert("कृपया 10 अंकों का फोन नंबर डालें!");
+    if (pinInput.length !== 4) return alert("4 अंकों का पिन बनाएं!");
     if (pinInput !== confirmPinInput) return alert("दोनों पिन एक जैसे होने चाहिए!");
 
     setAuthLoading(true);
@@ -108,7 +169,7 @@ export default function App() {
     }
   };
 
-  // 4. SECURE AUTH: LOGIN WITH PIN VERIFICATION
+  // 4. SECURE AUTH: LOGIN
   const handleLogin = async (e) => {
     e.preventDefault();
     if (phoneInput.length !== 10) return alert("10 अंकों का फोन नंबर डालें!");
@@ -117,7 +178,6 @@ export default function App() {
     setAuthLoading(true);
     const cleanPhone = phoneInput.trim();
 
-    // Master Admin Bypass Check
     if (cleanPhone === ADMIN_PHONE && pinInput === ADMIN_PIN) {
       const adminData = { name: "मास्टर एडमिन", phone: ADMIN_PHONE, role: 'admin' };
       setUser(adminData);
@@ -133,7 +193,7 @@ export default function App() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        alert("❌ यह नंबर रजिस्टर्ड नहीं है! कृपया पहले 'नया खाता बनाएं (Register)' पर क्लिक करें।");
+        alert("❌ यह नंबर रजिस्टर्ड नहीं है! कृपया पहले 'नया खाता बनाएं' पर क्लिक करें।");
         setAuthMode('register');
         setAuthLoading(false);
         return;
@@ -141,7 +201,7 @@ export default function App() {
 
       const userData = userSnap.data();
       if (userData.pin !== pinInput.trim()) {
-        alert("❌ गलत पिन! कृपया अपना सही 4-अंकों का पिन डालें।");
+        alert("❌ गलत पिन! सही 4-अंकों का पिन डालें।");
         setAuthLoading(false);
         return;
       }
@@ -179,7 +239,7 @@ export default function App() {
       price: selectedService.price,
       slot: form.custSlot.value,
       address: form.custAddr.value,
-      status: "Placed", // Placed ➔ Confirmed ➔ On The Way ➔ Completed
+      status: "Placed",
       createdAt: Date.now()
     };
 
@@ -214,18 +274,79 @@ export default function App() {
     }
   };
 
-  const services = [
-    { id: 1, name: "Ceiling Fan Repair / पंखा रिपेयर", price: 199 },
-    { id: 2, name: "Short Circuit Check / वायरिंग जांच", price: 399 },
-    { id: 3, name: "Inverter Setup / इनवर्टर फिटिंग", price: 499 },
-    { id: 4, name: "MCB Box & Wiring / स्विच बोर्ड फिटिंग", price: 299 }
-  ];
+  // 7. ADMIN: BROADCAST SALE OFFER MESSAGE
+  const updateBroadcastMessage = async (e) => {
+    e.preventDefault();
+    const text = e.target.broadcastText.value;
+    try {
+      await setDoc(doc(db, "settings", "broadcast"), {
+        text,
+        active: true,
+        updatedAt: Date.now()
+      });
+      alert("🎉 बधाई! यह ऑफर संदेश तुरंत सभी ग्राहकों के ऐप पर लाइव हो गया है।");
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
 
-  const products = [
-    { id: 1, name: "Polycab 2.5 Sq mm Wire (90m)", price: 1899, brand: "Polycab" },
-    { id: 2, name: "Havells 32A DP MCB Switch", price: 520, brand: "Havells" },
-    { id: 3, name: "Anchor Roma 6A Modular Switch Set", price: 310, brand: "Anchor" }
-  ];
+  // 8. ADMIN: EDIT & SAVE SERVICE / PRODUCT
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      if (editItem.type === 'service') {
+        await updateDoc(doc(db, "services", editItem.data.docId), {
+          name: f.name.value,
+          price: Number(f.price.value)
+        });
+        alert("सर्विस सफलतापूर्वक अपडेट हो गई!");
+      } else {
+        await updateDoc(doc(db, "products", editItem.data.docId), {
+          name: f.name.value,
+          brand: f.brand.value,
+          price: Number(f.price.value)
+        });
+        alert("सामान (Product) सफलतापूर्वक अपडेट हो गया!");
+      }
+      setEditItem(null);
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
+
+  // 9. ADMIN: ADD NEW SERVICE
+  const handleAddService = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await addDoc(collection(db, "services"), {
+        name: f.name.value,
+        price: Number(f.price.value)
+      });
+      setShowAddService(false);
+      alert("नई सर्विस सफलतापूर्वक जुड़ गई!");
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
+
+  // 10. ADMIN: ADD NEW PRODUCT
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await addDoc(collection(db, "products"), {
+        name: f.name.value,
+        brand: f.brand.value,
+        price: Number(f.price.value)
+      });
+      setShowAddProduct(false);
+      alert("नया सामान स्टोर में जुड़ गया!");
+    } catch (err) {
+      alert("एरर: " + err.message);
+    }
+  };
 
   // ================= 1. SPLASH SCREEN DISPLAY =================
   if (showSplash) {
@@ -249,13 +370,12 @@ export default function App() {
     );
   }
 
-  // ================= 2. MANDATORY AUTH SCREEN (LOGIN / REGISTER) =================
+  // ================= 2. MANDATORY AUTH SCREEN =================
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 font-sans">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
           
-          {/* Header */}
           <div className="bg-[#1E3A8A] text-white p-6 text-center">
             <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-2 text-[#0B1E3D] font-black">
               <Zap className="w-7 h-7 fill-[#0B1E3D]" />
@@ -264,7 +384,6 @@ export default function App() {
             <p className="text-xs text-yellow-300 font-medium">Electrical Service Hub</p>
           </div>
 
-          {/* Tab Selector: Login vs Register */}
           <div className="flex border-b border-slate-200 bg-slate-50">
             <button 
               onClick={() => setAuthMode('login')} 
@@ -280,12 +399,11 @@ export default function App() {
             </button>
           </div>
 
-          {/* Form */}
           <div className="p-6">
             {authMode === 'login' ? (
               <form onSubmit={handleLogin} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">मोबाइल नंबर (Phone Number)</label>
+                  <label className="block font-bold text-slate-700 mb-1">मोबाइल नंबर</label>
                   <input 
                     required 
                     type="tel" 
@@ -299,7 +417,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">4-अंकों का गुप्त पिन (PIN)</label>
+                  <label className="block font-bold text-slate-700 mb-1">4-अंकों का गुप्त पिन</label>
                   <input 
                     required 
                     type="password" 
@@ -330,7 +448,7 @@ export default function App() {
             ) : (
               <form onSubmit={handleRegister} className="space-y-3 text-xs">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">पूरा नाम (Full Name)</label>
+                  <label className="block font-bold text-slate-700 mb-1">पूरा नाम</label>
                   <input 
                     required 
                     type="text" 
@@ -386,7 +504,7 @@ export default function App() {
                   type="submit" 
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-xs shadow-md transition mt-2"
                 >
-                  {authLoading ? "अकाउंट बन रहा है..." : "खाता बनाएं (Register Now)"}
+                  {authLoading ? "अकाउंट बन रहा है..." : "खाता बनाएं (Register)"}
                 </button>
 
                 <p className="text-[11px] text-center text-slate-500 pt-2">
@@ -408,7 +526,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20 font-sans">
       
-      {/* Header */}
+      {/* Top Header */}
       <header className="bg-[#1E3A8A] text-white p-3.5 shadow-md flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
           <div className="bg-yellow-400 p-1.5 rounded-lg text-[#0B1E3D]">
@@ -416,7 +534,7 @@ export default function App() {
           </div>
           <div>
             <span className="font-black text-base block leading-none">विद्युत सेवा हब</span>
-            <span className="text-[9px] text-yellow-300 font-bold uppercase">Electrical Service Hub</span>
+            <span className="text-[9px] text-yellow-300 font-bold uppercase">Live Cloud Sync</span>
           </div>
         </div>
 
@@ -429,6 +547,19 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Broadcast Offer Ribbon for Customers */}
+      {broadcast.active && broadcast.text && (
+        <div className="bg-yellow-400 text-blue-950 px-4 py-2 font-black text-xs flex items-center justify-between shadow-sm animate-pulse">
+          <div className="flex items-center gap-2 truncate">
+            <Megaphone className="w-4 h-4 flex-shrink-0 fill-blue-950" />
+            <span className="truncate">{broadcast.text}</span>
+          </div>
+          <span className="text-[10px] uppercase tracking-wider bg-blue-900 text-white px-2 py-0.5 rounded font-bold ml-2 flex-shrink-0">
+            ऑफर
+          </span>
+        </div>
+      )}
 
       {/* Main Body */}
       <main className="max-w-xl mx-auto p-4 space-y-4">
@@ -456,16 +587,119 @@ export default function App() {
               <div>
                 <span className="text-[10px] bg-yellow-400 text-blue-950 font-black px-2 py-0.5 rounded-full uppercase">Master Admin Room</span>
                 <h2 className="text-lg font-black mt-1">एडमिन कंट्रोल डैशबोर्ड</h2>
-                <p className="text-xs text-slate-400">कुल लाइव बुकिंग्स: {bookings.length}</p>
+                <p className="text-xs text-slate-400">हेल्पलाइन: +91 {ADMIN_PHONE}</p>
               </div>
               <button onClick={() => setActiveTab('home')} className="text-xs bg-blue-800 text-white px-3 py-1.5 rounded-lg font-bold">
                 कस्टमर व्यू
               </button>
             </div>
 
-            {/* Bookings, Reviews & Complaints */}
+            {/* 1. BROADCAST SALE / DISCOUNT MESSAGE MANAGER */}
+            <div className="bg-white p-4 rounded-2xl border border-yellow-300 shadow-sm space-y-3">
+              <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <Megaphone className="w-4 h-4 text-amber-600" />
+                सेल / ऑफर ब्रॉडकास्ट (सभी ग्राहकों को संदेश भेजें)
+              </h3>
+              <form onSubmit={updateBroadcastMessage} className="space-y-2 text-xs">
+                <input 
+                  required 
+                  name="broadcastText" 
+                  defaultValue={broadcast.text} 
+                  placeholder="जैसे: दिवाली ऑफर: आज वायरिंग रिपेयर पर 20% छूट!" 
+                  className="w-full p-2.5 border rounded-xl font-bold bg-slate-50"
+                />
+                <button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-blue-950 font-black py-2 rounded-xl shadow text-xs">
+                  ✔ सभी ग्राहकों के ऐप पर यह ऑफर लाइव करें
+                </button>
+              </form>
+            </div>
+
+            {/* 2. SERVICES CRUD & EDIT (लाइव संशोधन) */}
             <div className="bg-white p-4 rounded-2xl border space-y-3 shadow-sm">
-              <h3 className="font-bold text-xs text-slate-800">ग्राहकों के लाइव आर्डर व शिकायतें</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1">
+                  <Wrench className="w-4 h-4 text-blue-800" />
+                  सर्विस लिस्ट व रेट संशोधन ({services.length})
+                </h3>
+                <button 
+                  onClick={() => setShowAddService(true)} 
+                  className="bg-blue-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-yellow-400" /> नई सर्विस
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {services.map((s) => (
+                  <div key={s.docId} className="p-2.5 bg-slate-50 border rounded-xl flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-slate-800 block">{s.name}</span>
+                      <span className="text-blue-900 font-black">₹{s.price}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button 
+                        onClick={() => setEditItem({ type: 'service', data: s })}
+                        className="bg-blue-100 hover:bg-blue-200 text-blue-900 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 text-[11px]"
+                      >
+                        <Edit3 className="w-3 h-3" /> बदलें
+                      </button>
+                      <button 
+                        onClick={() => deleteDoc(doc(db, "services", s.docId))} 
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. PRODUCTS CRUD & EDIT (लाइव संशोधन) */}
+            <div className="bg-white p-4 rounded-2xl border space-y-3 shadow-sm">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1">
+                  <ShoppingBag className="w-4 h-4 text-emerald-700" />
+                  प्रोडक्ट्स व सामान रेट संशोधन ({products.length})
+                </h3>
+                <button 
+                  onClick={() => setShowAddProduct(true)} 
+                  className="bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-yellow-300" /> नया सामान
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {products.map((p) => (
+                  <div key={p.docId} className="p-2.5 bg-slate-50 border rounded-xl flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">{p.brand}</span>
+                      <span className="font-bold text-slate-800">{p.name}</span>
+                      <div className="text-slate-900 font-black mt-0.5">₹{p.price}</div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button 
+                        onClick={() => setEditItem({ type: 'product', data: p })}
+                        className="bg-emerald-100 hover:bg-emerald-200 text-emerald-900 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 text-[11px]"
+                      >
+                        <Edit3 className="w-3 h-3" /> बदलें
+                      </button>
+                      <button 
+                        onClick={() => deleteDoc(doc(db, "products", p.docId))} 
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. LIVE BOOKINGS, RATINGS & COMPLAINTS */}
+            <div className="bg-white p-4 rounded-2xl border space-y-3 shadow-sm">
+              <h3 className="font-bold text-xs text-slate-800">ग्राहकों के लाइव आर्डर व शिकायतें ({bookings.length})</h3>
 
               {bookings.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-4">अभी कोई बुकिंग दर्ज नहीं हुई है।</p>
@@ -487,7 +721,7 @@ export default function App() {
                       </span>
                     </div>
 
-                    {/* Customer Rating & Review Display */}
+                    {/* Customer Rating Display */}
                     {b.rating && (
                       <div className="bg-yellow-50 border border-yellow-200 p-2 rounded-lg space-y-1">
                         <div className="flex items-center gap-1 text-amber-500 font-black">
@@ -624,11 +858,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* Services */}
+            {/* Services List (Real-time Cloud Sync) */}
             <div className="space-y-2.5">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं (Doorstep Services)</h2>
               {services.map((s) => (
-                <div key={s.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
+                <div key={s.docId} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
                   <div>
                     <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
                     <div className="text-xs font-black text-blue-800 mt-0.5">₹{s.price}</div>
@@ -640,11 +874,11 @@ export default function App() {
               ))}
             </div>
 
-            {/* Products */}
+            {/* Products List (Real-time Cloud Sync) */}
             <div className="space-y-2.5 pt-2">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
               {products.map((p) => (
-                <div key={p.id} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
+                <div key={p.docId} className="bg-white p-3.5 rounded-xl border flex justify-between items-center shadow-sm">
                   <div>
                     <span className="text-[9px] font-bold text-slate-400 uppercase">{p.brand}</span>
                     <h3 className="font-bold text-xs text-slate-900">{p.name}</h3>
@@ -666,6 +900,91 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ================= EDIT SERVICE / PRODUCT MODAL (ADMIN ONLY) ================= */}
+      {editItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleSaveEdit} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
+            <button type="button" onClick={() => setEditItem(null)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-sm text-slate-900">
+              {editItem.type === 'service' ? 'सर्विस संशोधन (Edit Service)' : 'सामान संशोधन (Edit Product)'}
+            </h3>
+
+            <div>
+              <label className="block font-bold mb-1">नाम</label>
+              <input required name="name" defaultValue={editItem.data.name} className="w-full p-2 border rounded-lg font-bold" />
+            </div>
+
+            {editItem.type === 'product' && (
+              <div>
+                <label className="block font-bold mb-1">ब्रांड</label>
+                <input required name="brand" defaultValue={editItem.data.brand} className="w-full p-2 border rounded-lg font-bold" />
+              </div>
+            )}
+
+            <div>
+              <label className="block font-bold mb-1">कीमत (₹)</label>
+              <input required type="number" name="price" defaultValue={editItem.data.price} className="w-full p-2 border rounded-lg font-bold" />
+            </div>
+
+            <button type="submit" className="w-full bg-blue-900 hover:bg-blue-950 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              बदलाव सेव करें (Update Live)
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ================= ADD NEW SERVICE MODAL ================= */}
+      {showAddService && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleAddService} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-xl relative">
+            <button type="button" onClick={() => setShowAddService(false)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-sm text-slate-900">नई सर्विस जोड़ें</h3>
+            <div>
+              <label className="block font-bold mb-1">सर्विस का नाम</label>
+              <input required name="name" placeholder="जैसे: मोटर वाइंडिंग रिपेयर" className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold mb-1">शुरुआती चार्ज (₹)</label>
+              <input required type="number" name="price" placeholder="जैसे: 350" className="w-full p-2 border rounded-lg" />
+            </div>
+            <button type="submit" className="w-full bg-blue-900 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              सर्विस लाइव करें
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ================= ADD NEW PRODUCT MODAL ================= */}
+      {showAddProduct && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleAddProduct} className="bg-white p-5 rounded-2xl w-full max-w-sm space-y-3 text-xs shadow-xl relative">
+            <button type="button" onClick={() => setShowAddProduct(false)} className="absolute right-4 top-4 text-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-black text-sm text-slate-900">नया सामान स्टोर में जोड़ें</h3>
+            <div>
+              <label className="block font-bold mb-1">प्रोडक्ट का नाम</label>
+              <input required name="name" placeholder="जैसे: LED Batten 20W" className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold mb-1">ब्रांड का नाम</label>
+              <input required name="brand" placeholder="जैसे: Philips / Havells" className="w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label className="block font-bold mb-1">कीमत (₹)</label>
+              <input required type="number" name="price" placeholder="जैसे: 240" className="w-full p-2 border rounded-lg" />
+            </div>
+            <button type="submit" className="w-full bg-emerald-700 text-white py-2.5 rounded-lg font-bold shadow text-xs">
+              सामान स्टोर में जोड़ें
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* ================= BOOKING MODAL ================= */}
       {selectedService && (
@@ -713,7 +1032,6 @@ export default function App() {
             <h3 className="font-black text-sm text-slate-900">रेटिंग और फीडबैक</h3>
             <p className="text-xs text-slate-500">सर्विस: {reviewModalBooking.serviceName}</p>
 
-            {/* 5-Star Selector */}
             <div>
               <label className="block font-bold mb-1">रेटिंग दें:</label>
               <div className="flex gap-2">
