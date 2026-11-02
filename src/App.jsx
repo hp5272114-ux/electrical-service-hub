@@ -71,13 +71,13 @@ export default function App() {
   const [paymentConfig, setPaymentConfig] = useState({ upiId: "6367626276@upi", upiName: "Electrical Service Hub" });
 
   // Modals & Detailed Views
-  const [detailService, setDetailService] = useState(null); // सर्विस डिटेल व्यू
-  const [selectedService, setSelectedService] = useState(null); // बुकिंग फॉर्म
-  const [billModalBooking, setBillModalBooking] = useState(null); // एडमिन बिल व फोटो
-  const [customerPayBooking, setCustomerPayBooking] = useState(null); // ग्राहक पेमेंट
-  const [reviewModalBooking, setReviewModalBooking] = useState(null); // रेटिंग
-  const [custDetailBooking, setCustDetailBooking] = useState(null); // ग्राहक आर्डर फुल डिटेल
-  const [adminDetailBooking, setAdminDetailBooking] = useState(null); // एडमिन आर्डर फुल डिटेल
+  const [detailService, setDetailService] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+  const [billModalBooking, setBillModalBooking] = useState(null);
+  const [customerPayBooking, setCustomerPayBooking] = useState(null);
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  const [custDetailBooking, setCustDetailBooking] = useState(null);
+  const [adminDetailBooking, setAdminDetailBooking] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [showAddService, setShowAddService] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -344,13 +344,13 @@ export default function App() {
     }
   };
 
-  // 7. ADMIN: REOPEN SERVICE (फोटो व बिल अनलॉक करना)
+  // 7. ADMIN: REOPEN SERVICE
   const handleReopenService = async (booking) => {
     if (!window.confirm("क्या आप इस सर्विस को दोबारा खोलना (Reopen) चाहते हैं? इससे फोटो व बिल दोबारा अनलॉक हो जाएंगे।")) return;
     try {
       await updateDoc(doc(db, "bookings", booking.docId), {
         status: "On The Way",
-        isBilled: false, // Unlocks upload & billing!
+        isBilled: false,
         reopenedAt: Date.now()
       });
       alert("✔ सर्विस दोबारा खोल दी गई है! अब आप नया फोटो व बिल अपडेट कर सकते हैं।");
@@ -360,13 +360,14 @@ export default function App() {
     }
   };
 
-  // 8. ADMIN: MANAGE PAYMENT STATUS (PAID vs UNPAID)
+  // 8. ADMIN: MANAGE PAYMENT STATUS (PAID vs UNPAID) - [Fixed line 369]
   const handleTogglePaymentStatus = async (booking, targetStatus) => {
     try {
       await updateDoc(doc(db, "bookings", booking.docId), {
         paymentStatus: targetStatus
       });
-      alert(`✔ पेमेंट स्थिति '${targetStatus === 'paid' ? 'भुगतान पूर्ण (Paid)' : 'लंबित (Unpaid)}' सेट कर दी गई है! ग्राहक को तुरंत अपडेट दिखेगा।`);
+      const statusTitle = targetStatus === 'paid' ? 'भुगतान पूर्ण (Paid)' : 'लंबित (Unpaid)';
+      alert(`✔ पेमेंट स्थिति '${statusTitle}' सेट कर दी गई है! ग्राहक को तुरंत अपडेट दिखेगा।`);
       if (adminDetailBooking) {
         setAdminDetailBooking({ ...adminDetailBooking, paymentStatus: targetStatus });
       }
@@ -497,7 +498,7 @@ export default function App() {
           </div>
           <div>
             <span className="font-black text-base block leading-none">विद्युत सेवा हब</span>
-            <span className="text-[9px] text-yellow-300 font-bold uppercase">Executive Cloud Hub</span>
+            <span className="text-[9px] text-yellow-300 font-bold uppercase">Work Proof & Live Billing</span>
           </div>
         </div>
 
@@ -509,7 +510,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Offer Ribbon */}
+      {/* Offer Strip */}
       {broadcast.active && broadcast.text && (
         <div className="bg-yellow-400 text-blue-950 px-4 py-2 font-black text-xs flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 truncate">
@@ -523,7 +524,7 @@ export default function App() {
       {/* Main Container */}
       <main className="max-w-xl mx-auto p-4 space-y-4">
         
-        {/* SOS Button */}
+        {/* SOS */}
         <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-3.5 rounded-2xl shadow-lg flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <div className="bg-white/20 p-2 rounded-xl animate-pulse">
@@ -537,9 +538,7 @@ export default function App() {
           <a href={`tel:${ADMIN_PHONE}`} className="bg-yellow-400 text-blue-950 font-black text-xs px-3.5 py-2 rounded-xl shadow">SOS कॉल</a>
         </div>
 
-        {/* ============================================================== */}
-        {/* ==================== 🏆 ADMIN WORKSPACE ======================= */}
-        {/* ============================================================== */}
+        {/* ================= ADMIN WORKSPACE ================= */}
         {activeTab === 'admin' && user.role === 'admin' && (
           <div className="space-y-4">
             
@@ -587,7 +586,6 @@ export default function App() {
                 {bookings.map((b) => (
                   <div key={b.docId} className="p-3.5 bg-slate-50 border rounded-2xl space-y-2.5 text-xs">
                     
-                    {/* Clickable Header opens Full Admin Detail Sheet */}
                     <div onClick={() => setAdminDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-100 p-1 rounded-xl transition">
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -614,13 +612,11 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Operational Action Controls */}
                     <div className="flex gap-1.5 pt-2 border-t flex-wrap items-center">
                       <button onClick={() => updateDoc(doc(db, "bookings", b.docId), { status: "Confirmed" })} className="bg-blue-800 text-white text-[10px] px-2.5 py-1 rounded-lg font-bold">
                         स्वीकारें
                       </button>
                       
-                      {/* Photo & Bill Button (LOCKED if already billed, unless reopened!) */}
                       {b.isBilled && b.status === 'Completed' ? (
                         <div className="flex items-center gap-1">
                           <span className="bg-slate-200 text-slate-600 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
@@ -650,7 +646,6 @@ export default function App() {
                         </button>
                       )}
 
-                      {/* Payment Verification Quick Toggle */}
                       <button 
                         onClick={() => handleTogglePaymentStatus(b, b.paymentStatus === 'paid' ? 'unpaid' : 'paid')}
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ml-auto ${
@@ -752,9 +747,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ============================================================== */}
-        {/* ================== CUSTOMER ORDERS VIEW ====================== */}
-        {/* ============================================================== */}
+        {/* ================= CUSTOMER ORDERS VIEW ================= */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -765,7 +758,6 @@ export default function App() {
             {bookings.filter(b => b.customerPhone === user.phone).map((b) => (
               <div key={b.docId} className="bg-white p-4 rounded-3xl border shadow-sm space-y-3">
                 
-                {/* Clickable order card to open full customer detail modal */}
                 <div onClick={() => setCustDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-50 p-1 rounded-2xl transition">
                   <div>
                     <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
@@ -783,7 +775,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Tracking Progress */}
                 <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
                   <div className="flex items-center justify-between text-[11px] font-bold">
                     <span className="text-blue-900 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> दर्ज</span>
@@ -801,7 +792,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Final Bill Action or View Details */}
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setCustDetailBooking(b)} 
@@ -820,7 +810,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Rating Button */}
                 {b.status === 'Completed' && !b.rating && (
                   <button onClick={() => setReviewModalBooking(b)} className="w-full bg-yellow-400 text-blue-950 font-black text-xs py-2 rounded-xl flex items-center justify-center gap-1 shadow">
                     <Star className="w-3.5 h-3.5 fill-blue-950" /> सर्विस को रेटिंग दें / शिकायत दर्ज करें
@@ -831,9 +820,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ============================================================== */}
-        {/* ===================== CUSTOMER HOME VIEW ===================== */}
-        {/* ============================================================== */}
+        {/* ================= HOME VIEW ================= */}
         {activeTab === 'home' && (
           <div className="space-y-4">
             <div className="relative">
@@ -850,7 +837,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Services with Detail Modal Trigger */}
             <div className="space-y-2.5">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं (Services)</h2>
               {services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => (
@@ -859,7 +845,6 @@ export default function App() {
                     <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
                     <div className="text-xs font-black text-blue-800 mt-0.5">शुरुआती: ₹{s.price} <span className="text-[10px] text-slate-400">(विजिट: ₹{s.visiting || 99})</span></div>
                   </div>
-                  {/* Clicking opens Service Details first */}
                   <button onClick={() => setDetailService(s)} className="bg-[#1E3A8A] text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1">
                     विवरण व बुक <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -867,7 +852,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* Products Store */}
             <div className="space-y-2.5 pt-2">
               <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
               {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => (
@@ -885,7 +869,7 @@ export default function App() {
         )}
       </main>
 
-      {/* ================= MODAL 1: SERVICE DETAILS BEFORE BOOKING ================= */}
+      {/* ================= MODAL 1: SERVICE DETAILS ================= */}
       {detailService && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative">
@@ -929,7 +913,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL 2: CUSTOMER ORDER FULL DETAILS (DATE, TIME, PHOTOS, BILL) ================= */}
+      {/* ================= MODAL 2: CUSTOMER ORDER FULL DETAILS ================= */}
       {custDetailBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8">
@@ -947,7 +931,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Photos Display */}
             {(custDetailBooking.beforePhoto || custDetailBooking.afterPhoto) ? (
               <div className="space-y-2">
                 <span className="font-bold text-xs text-slate-800 block">काम का प्रमाणित फोटो प्रूफ:</span>
@@ -977,30 +960,18 @@ export default function App() {
               </p>
             )}
 
-            {/* Final Bill Breakdown */}
             {custDetailBooking.isBilled ? (
               <div className="bg-slate-50 p-3.5 rounded-2xl border text-xs space-y-1.5">
                 <span className="font-bold text-slate-800 block">पक्का फाइनल बिल विवरण:</span>
-                <div className="flex justify-between text-slate-600">
-                  <span>लेबर / सर्विस चार्ज:</span>
-                  <span>₹{custDetailBooking.labourFee}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>स्पेयर पार्ट्स / सामान:</span>
-                  <span>₹{custDetailBooking.materialFee || 0}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>विजिटिंग फीस:</span>
-                  <span>₹{custDetailBooking.visitFee || 0}</span>
-                </div>
+                <div className="flex justify-between text-slate-600"><span>लेबर / सर्विस चार्ज:</span><span>₹{custDetailBooking.labourFee}</span></div>
+                <div className="flex justify-between text-slate-600"><span>स्पेयर पार्ट्स / सामान:</span><span>₹{custDetailBooking.materialFee || 0}</span></div>
+                <div className="flex justify-between text-slate-600"><span>विजिटिंग फीस:</span><span>₹{custDetailBooking.visitFee || 0}</span></div>
                 <div className="border-t pt-1.5 flex justify-between items-center font-black text-sm text-slate-900">
-                  <span>कुल फाइनल बिल:</span>
-                  <span className="text-emerald-700 text-base">₹{custDetailBooking.finalTotal}</span>
+                  <span>कुल फाइनल बिल:</span><span className="text-emerald-700 text-base">₹{custDetailBooking.finalTotal}</span>
                 </div>
               </div>
             ) : null}
 
-            {/* Payment Status Pill */}
             <div className={`p-3 rounded-2xl text-center text-xs font-bold border ${
               custDetailBooking.paymentStatus === 'paid' 
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
@@ -1014,7 +985,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL 3: ADMIN FULL ORDER INSPECTOR (STATUS, PHOTOS, REOPEN, PAYMENT) ================= */}
+      {/* ================= MODAL 3: ADMIN FULL ORDER INSPECTOR ================= */}
       {adminDetailBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
@@ -1028,7 +999,6 @@ export default function App() {
               <p className="text-slate-500">पता: {adminDetailBooking.address}</p>
             </div>
 
-            {/* Photos Preview */}
             <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-2xl border">
               <div>
                 <span className="text-[9px] font-bold text-slate-400 block">काम से पहले:</span>
@@ -1044,7 +1014,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Billing Overview */}
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl space-y-1">
               <div className="flex justify-between font-bold text-blue-950">
                 <span>फाइनल बिल:</span>
@@ -1058,11 +1027,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* Admin Controls in Inspector */}
             <div className="space-y-2 pt-2 border-t">
               <span className="font-bold text-slate-800 block">एडमिन एक्शन कंट्रोल्स:</span>
               
-              {/* Payment toggle */}
               <button 
                 onClick={() => handleTogglePaymentStatus(adminDetailBooking, adminDetailBooking.paymentStatus === 'paid' ? 'unpaid' : 'paid')}
                 className="w-full bg-blue-900 text-white font-bold py-2 rounded-xl"
@@ -1070,7 +1037,6 @@ export default function App() {
                 {adminDetailBooking.paymentStatus === 'paid' ? 'भुगतान वापस लंबित (Unpaid) करें' : '✔ भुगतान प्राप्त हुआ (Mark Paid) करें'}
               </button>
 
-              {/* Reopen service toggle */}
               <button 
                 onClick={() => handleReopenService(adminDetailBooking)}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-blue-950 font-black py-2 rounded-xl flex items-center justify-center gap-1 shadow"
