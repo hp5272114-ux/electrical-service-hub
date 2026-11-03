@@ -10,7 +10,7 @@ import {
   Clock, Truck, Star, AlertCircle, Edit3, Trash2, PlusCircle, 
   Megaphone, Shield, Search, TrendingUp, Camera, QrCode, 
   FileText, Check, Send, RotateCcw, Lock, ChevronRight, Calendar, 
-  Info, CheckSquare, Sparkles 
+  Info, MapPin, ChevronDown, Award, Sparkles, ArrowLeft, CheckSquare 
 } from 'lucide-react';
 
 const ADMIN_PHONE = "6367626276";
@@ -29,7 +29,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// इमेज को सुरक्षित रूप से कंप्रेस करने का फंक्शन
+// इमेज कंप्रेसर
 const compressImage = (file, callback) => {
   if (!file) return;
   const reader = new FileReader();
@@ -59,11 +59,12 @@ export default function App() {
   });
 
   const [authMode, setAuthMode] = useState('login');
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'orders' | 'admin' | 'store'
   const [adminSubTab, setAdminSubTab] = useState('metrics');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Collections
+  // Real-time Cloud Collections
   const [bookings, setBookings] = useState([]);
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -72,7 +73,7 @@ export default function App() {
 
   // Modals & Detailed Views
   const [detailService, setDetailService] = useState(null);
-  const [selectedService, setSelectedService] = useState(null);
+  const [bookingStepService, setBookingStepService] = useState(null);
   const [billModalBooking, setBillModalBooking] = useState(null);
   const [customerPayBooking, setCustomerPayBooking] = useState(null);
   const [reviewModalBooking, setReviewModalBooking] = useState(null);
@@ -82,7 +83,7 @@ export default function App() {
   const [showAddService, setShowAddService] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
 
-  // Billing & Photo Upload Form States
+  // Billing States
   const [beforePhoto, setBeforePhoto] = useState('');
   const [afterPhoto, setAfterPhoto] = useState('');
   const [workDetails, setWorkDetails] = useState('');
@@ -102,7 +103,7 @@ export default function App() {
   const [reviewText, setReviewText] = useState('');
   const [complaintText, setComplaintText] = useState('');
 
-  // 1. SPLASH SCREEN (2.5s)
+  // 1. SPLASH SCREEN (2.5 Seconds)
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
     return () => clearTimeout(timer);
@@ -120,30 +121,50 @@ export default function App() {
       if (snap.empty) {
         const initial = [
           { 
-            name: "Ceiling Fan Repair / पंखा रिपेयर", 
+            name: "Ceiling Fan Repair & Service", 
+            nameHi: "सीलिंग पंखा रिपेयर व सर्विस",
+            category: "fans",
             price: 199, 
+            mrp: 299,
             visiting: 99, 
-            description: "सीलिंग पंखे की आवाज ठीक करना, बैरिंग व कैपेसिटर रिप्लेसमेंट और स्पीड चेक।",
-            includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर व बैरिंग जांच", "30 दिन की रिपेयर वारंटी"]
+            rating: "4.8",
+            bookedCount: "1,840+",
+            description: "आवाज बंद करना, बैरिंग रिप्लेसमेंट, कैपेसिटर चेंज व हाई स्पीड चेकिंग।",
+            includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर व बैरिंग जांच", "30 दिन की रिपेयर वारंटी", "सुरक्षित अर्थिंग टेस्ट"]
           },
           { 
-            name: "Short Circuit & Rewiring / वायरिंग जांच", 
+            name: "Full House Short Circuit & Rewiring", 
+            nameHi: "शॉर्ट सर्किट व फॉल्ट चेकिंग",
+            category: "wiring",
             price: 399, 
+            mrp: 599,
             visiting: 149, 
+            rating: "4.9",
+            bookedCount: "920+",
             description: "एमसीबी ट्रिपिंग, स्पार्किंग, न्यूट्रल लीकेज व शॉर्ट सर्किट की डिजिटल मल्टीमीटर से जांच।",
-            includes: ["शॉर्ट सर्किट प्वाइंट डिटेक्शन", "सुरक्षा लोड टेस्टिंग", "अर्थिंग चेकिंग"]
+            includes: ["शॉर्ट सर्किट प्वाइंट डिटेक्शन", "सुरक्षा लोड टेस्टिंग", "अर्थिंग चेकिंग", "30 दिन वारंटी"]
           },
           { 
-            name: "Inverter Setup / इनवर्टर व बैटरी फिटिंग", 
+            name: "Inverter & Dual Battery Setup", 
+            nameHi: "इनवर्टर व डबल बैटरी फिटिंग",
+            category: "power",
             price: 499, 
+            mrp: 750,
             visiting: 149, 
+            rating: "4.9",
+            bookedCount: "640+",
             description: "घर के मेन लोड के साथ इनवर्टर व ड्यूल बैटरी का हैवी केबल कनेक्शन व बाईपास सेटअप।",
-            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल इनवर्टर टेस्टिंग"]
+            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल इनवर्टर टेस्टिंग", "30 दिन वारंटी"]
           },
           { 
-            name: "MCB Box & Wiring / स्विच बोर्ड फिटिंग", 
+            name: "Modular MCB & Switchboard Replacement", 
+            nameHi: "मॉड्यूलर स्विच व एमसीबी फिटिंग",
+            category: "switchgear",
             price: 299, 
+            mrp: 450,
             visiting: 99, 
+            rating: "4.7",
+            bookedCount: "1,210+",
             description: "मॉड्यूलर स्विच, डीपी स्विच, एमसीबी चेंजओवर और जल चुके सॉकेट का रिप्लेसमेंट।",
             includes: ["पुराने बोर्ड का कनेक्शन चेक", "सुरक्षित अर्थिंग वायर", "ब्रांडेड फिटिंग"]
           }
@@ -157,9 +178,9 @@ export default function App() {
     const unsubProducts = onSnapshot(collection(db, "products"), async (snap) => {
       if (snap.empty) {
         const initial = [
-          { name: "Polycab 2.5 Sq mm Wire (90m)", brand: "Polycab", price: 1899 },
-          { name: "Havells 32A DP MCB Switch", brand: "Havells", price: 520 },
-          { name: "Anchor Roma 6A Modular Switch Set", brand: "Anchor", price: 310 }
+          { name: "Polycab 2.5 Sq mm Flame Retardant Wire (90m)", brand: "Polycab", mrp: 2450, price: 1899, rating: "4.9" },
+          { name: "Havells 32A Double Pole C-Curve MCB", brand: "Havells", mrp: 680, price: 520, rating: "4.8" },
+          { name: "Anchor Roma 6A Modular Switch Set (Pack of 10)", brand: "Anchor", mrp: 480, price: 310, rating: "4.7" }
         ];
         for (const p of initial) await addDoc(collection(db, "products"), p);
       } else {
@@ -186,16 +207,14 @@ export default function App() {
     };
   }, []);
 
-  // 3. METRICS
+  // Metrics
   const totalRevenue = bookings
     .filter(b => b.paymentStatus === 'paid')
     .reduce((sum, b) => sum + (Number(b.finalTotal || b.price) || 0), 0);
-
   const pendingCount = bookings.filter(b => b.status === 'Placed').length;
   const activeCount = bookings.filter(b => b.status === 'Confirmed' || b.status === 'On The Way').length;
-  const complaintsCount = bookings.filter(b => b.complaint && b.complaintStatus !== 'Resolved').length;
 
-  // 4. AUTH
+  // 3. AUTH
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!nameInput.trim() || phoneInput.length !== 10 || pinInput.length !== 4) return alert("सभी जानकारी सही भरें!");
@@ -285,7 +304,7 @@ export default function App() {
     setActiveTab('home');
   };
 
-  // 5. BOOKING SUBMISSION
+  // 4. BOOKING SUBMISSION
   const handleBooking = async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -295,8 +314,8 @@ export default function App() {
       bookingId: refCode,
       customerName: user.name,
       customerPhone: user.phone,
-      serviceName: selectedService.name,
-      price: selectedService.price,
+      serviceName: bookingStepService.name,
+      price: bookingStepService.price,
       slot: form.custSlot.value,
       address: form.custAddr.value,
       status: "Placed",
@@ -306,15 +325,15 @@ export default function App() {
 
     try {
       await addDoc(collection(db, "bookings"), bookingData);
-      setSelectedService(null);
+      setBookingStepService(null);
       setActiveTab('orders');
-      alert(`🎉 बुकिंग दर्ज! रिफरेंस: #${refCode}`);
+      alert(`🎉 बधाई! बुकिंग दर्ज हो चुकी है (Ref: #${refCode})\nलाइव ट्रैकिंग शुरू हो गई है।`);
     } catch (err) {
       alert("एरर: " + err.message);
     }
   };
 
-  // 6. ADMIN GENERATES FINAL BILL & UPLOADS BEFORE/AFTER PHOTOS
+  // 5. ADMIN GENERATES FINAL BILL & UPLOADS BEFORE/AFTER PHOTOS
   const handleGenerateFinalBill = async (e) => {
     e.preventDefault();
     if (!billModalBooking) return;
@@ -325,7 +344,7 @@ export default function App() {
       await updateDoc(doc(db, "bookings", billModalBooking.docId), {
         beforePhoto: beforePhoto || billModalBooking.beforePhoto || null,
         afterPhoto: afterPhoto || billModalBooking.afterPhoto || null,
-        workDetails: workDetails || billModalBooking.workDetails || "कार्य सफलतापूर्वक पूर्ण हुआ।",
+        workDetails: workDetails || billModalBooking.workDetails || "कार्य पूर्ण हुआ।",
         labourFee: Number(labourFee),
         materialFee: Number(materialFee),
         visitFee: Number(visitFee),
@@ -334,7 +353,7 @@ export default function App() {
         isBilled: true,
         paymentStatus: billModalBooking.paymentStatus || "unpaid"
       });
-      alert(`✔ फाइनल बिल ₹${total} जारी हो चुका है। अब फोटो व विवरण लॉक हो गए हैं।`);
+      alert(`✔ फाइनल बिल ₹${total} जारी कर दिया गया है।`);
       setBillModalBooking(null);
       setBeforePhoto('');
       setAfterPhoto('');
@@ -344,30 +363,30 @@ export default function App() {
     }
   };
 
-  // 7. ADMIN: REOPEN SERVICE
+  // 6. ADMIN REOPENS SERVICE
   const handleReopenService = async (booking) => {
-    if (!window.confirm("क्या आप इस सर्विस को दोबारा खोलना (Reopen) चाहते हैं? इससे फोटो व बिल दोबारा अनलॉक हो जाएंगे।")) return;
+    if (!window.confirm("क्या आप इस सर्विस को दोबारा खोलना (Reopen) चाहते हैं? फोटो व बिल अनलॉक हो जाएंगे।")) return;
     try {
       await updateDoc(doc(db, "bookings", booking.docId), {
         status: "On The Way",
         isBilled: false,
         reopenedAt: Date.now()
       });
-      alert("✔ सर्विस दोबारा खोल दी गई है! अब आप नया फोटो व बिल अपडेट कर सकते हैं।");
+      alert("✔ सर्विस दोबारा खोल दी गई है!");
       if (adminDetailBooking) setAdminDetailBooking(null);
     } catch (err) {
       alert("एरर: " + err.message);
     }
   };
 
-  // 8. ADMIN: MANAGE PAYMENT STATUS (PAID vs UNPAID) - [Fixed line 369]
+  // 7. ADMIN PAYMENT TOGGLE
   const handleTogglePaymentStatus = async (booking, targetStatus) => {
     try {
       await updateDoc(doc(db, "bookings", booking.docId), {
         paymentStatus: targetStatus
       });
       const statusTitle = targetStatus === 'paid' ? 'भुगतान पूर्ण (Paid)' : 'लंबित (Unpaid)';
-      alert(`✔ पेमेंट स्थिति '${statusTitle}' सेट कर दी गई है! ग्राहक को तुरंत अपडेट दिखेगा।`);
+      alert(`✔ पेमेंट स्थिति '${statusTitle}' सेट हो गई है!`);
       if (adminDetailBooking) {
         setAdminDetailBooking({ ...adminDetailBooking, paymentStatus: targetStatus });
       }
@@ -376,7 +395,7 @@ export default function App() {
     }
   };
 
-  // 9. CUSTOMER PAYMENT CONFIRMATION
+  // 8. CUSTOMER PAYMENT
   const handleCustomerPayment = async (mode) => {
     if (!customerPayBooking) return;
     try {
@@ -386,14 +405,14 @@ export default function App() {
       });
       alert(mode === 'cash' 
         ? "✔ आपने कैश विकल्प चुना है। कृपया इलेक्ट्रीशियन को नकद राशि दें।" 
-        : "🎉 ऑनलाइन UPI पेमेंट दर्ज हो चुकी है! एडमिन द्वारा सत्यापन होते ही रसीद लॉक होगी।");
+        : "🎉 ऑनलाइन UPI पेमेंट दर्ज हो चुकी है!");
       setCustomerPayBooking(null);
     } catch (err) {
       alert("एरर: " + err.message);
     }
   };
 
-  // 10. RATING SUBMIT
+  // 9. RATING SUBMISSION
   const submitReview = async (e) => {
     e.preventDefault();
     if (!reviewModalBooking) return;
@@ -411,18 +430,31 @@ export default function App() {
     }
   };
 
+  // Categories Metadata (Urban Company style)
+  const categories = [
+    { id: 'all', name: 'सभी सेवाएं', icon: Sparkles },
+    { id: 'fans', name: 'पंखा व कूलर', icon: Wrench },
+    { id: 'wiring', name: 'वायरिंग व फॉल्ट', icon: Zap },
+    { id: 'power', name: 'इनवर्टर व बैटरी', icon: BatteryChargingIcon },
+    { id: 'switchgear', name: 'स्विच व MCB', icon: Shield }
+  ];
+
+  function BatteryChargingIcon(props) {
+    return <Zap {...props} />;
+  }
+
   // ================= 1. SPLASH SCREEN =================
   if (showSplash) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0B1E3D] via-[#102A56] to-[#1E3A8A] flex flex-col items-center justify-center p-6 text-white text-center">
-        <div className="bg-yellow-400 p-5 rounded-3xl shadow-2xl animate-bounce mb-6 border-4 border-yellow-300">
-          <Zap className="w-16 h-16 text-[#0B1E3D] fill-[#0B1E3D]" />
+      <div className="min-h-screen bg-[#0F1111] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div className="bg-[#FF9900] p-5 rounded-3xl shadow-2xl animate-bounce mb-6">
+          <Zap className="w-16 h-16 text-[#0F1111] fill-[#0F1111]" />
         </div>
         <h1 className="text-3xl font-black tracking-tight text-white">विद्युत सेवा हब</h1>
-        <p className="text-yellow-300 font-bold tracking-widest text-xs uppercase mt-1">Electrical Service Hub</p>
-        <div className="mt-8 flex items-center gap-2 text-xs text-blue-100 bg-white/10 px-4 py-2 rounded-full border border-white/20">
-          <Shield className="w-4 h-4 text-yellow-400" />
-          <span>100% वेरिफाइड इलेक्ट्रीशियन व फोटो प्रूफ बिलिंग</span>
+        <p className="text-[#FF9900] font-bold tracking-widest text-xs uppercase mt-1">Electrical Service Hub • India</p>
+        <div className="mt-8 flex items-center gap-2 text-xs text-slate-300 bg-white/10 px-4 py-2 rounded-full border border-white/20">
+          <Shield className="w-4 h-4 text-[#FF9900]" />
+          <span>Government Certified Electricians & 100% Genuine Store</span>
         </div>
       </div>
     );
@@ -433,12 +465,12 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 font-sans">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-[#0B1E3D] to-[#1E3A8A] text-white p-6 text-center">
-            <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center mx-auto mb-2 text-[#0B1E3D] font-black">
-              <Zap className="w-7 h-7 fill-[#0B1E3D]" />
+          <div className="bg-[#131921] text-white p-6 text-center">
+            <div className="w-12 h-12 bg-[#FF9900] rounded-2xl flex items-center justify-center mx-auto mb-2 text-[#0F1111] font-black">
+              <Zap className="w-7 h-7 fill-[#0F1111]" />
             </div>
             <h2 className="text-xl font-black">विद्युत सेवा हब</h2>
-            <p className="text-xs text-yellow-300 font-medium">Electrical Services & Store</p>
+            <p className="text-xs text-amber-300 font-medium">India's Verified Electric Hub</p>
           </div>
 
           <div className="flex border-b border-slate-200 bg-slate-50">
@@ -463,7 +495,7 @@ export default function App() {
                   <input required type="password" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))} placeholder="****" className="w-full p-2.5 border rounded-xl text-center tracking-widest font-black text-base bg-slate-50" />
                   <span className="text-[10px] text-slate-400 mt-1 block">एडमिन पिन: <strong>2026</strong></span>
                 </div>
-                <button disabled={authLoading} type="submit" className="w-full bg-[#1E3A8A] text-white py-3 rounded-xl font-black text-xs shadow-lg">
+                <button disabled={authLoading} type="submit" className="w-full bg-[#131921] hover:bg-[#0F1111] text-white py-3 rounded-xl font-black text-xs shadow-lg">
                   {authLoading ? "जांच जारी..." : "लॉगिन करें"}
                 </button>
               </form>
@@ -486,46 +518,58 @@ export default function App() {
     );
   }
 
-  // ================= 3. MAIN APP UI =================
+  // ================= 3. MAIN APP UI (AMAZON / URBAN COMPANY LOOK) =================
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20 font-sans">
       
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#0B1E3D] to-[#1E3A8A] text-white p-3.5 shadow-md flex justify-between items-center sticky top-0 z-30">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-          <div className="bg-yellow-400 p-1.5 rounded-xl text-[#0B1E3D] shadow">
-            <Zap className="w-5 h-5 fill-[#0B1E3D]" />
+      {/* 1. TOP HEADER (Amazon Dark Slate Header) */}
+      <header className="bg-[#131921] text-white shadow-md sticky top-0 z-30">
+        <div className="max-w-xl mx-auto px-3.5 py-2.5 flex justify-between items-center">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
+            <div className="bg-[#FF9900] p-1.5 rounded-xl text-[#0F1111] shadow">
+              <Zap className="w-5 h-5 fill-[#0F1111]" />
+            </div>
+            <div>
+              <span className="font-black text-base block leading-none tracking-tight">विद्युत सेवा हब</span>
+              <span className="text-[9px] text-[#FF9900] font-bold uppercase tracking-wider">Electrical Hub</span>
+            </div>
           </div>
-          <div>
-            <span className="font-black text-base block leading-none">विद्युत सेवा हब</span>
-            <span className="text-[9px] text-yellow-300 font-bold uppercase">Work Proof & Live Billing</span>
+
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${user.role === 'admin' ? 'bg-[#FF9900] text-slate-950' : 'bg-emerald-600 text-white'}`}>
+              {user.role === 'admin' ? 'MASTER ADMIN' : user.name.split(' ')[0]}
+            </span>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-white p-1"><LogOut className="w-4 h-4" /></button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${user.role === 'admin' ? 'bg-yellow-400 text-blue-950' : 'bg-emerald-600 text-white'}`}>
-            {user.role === 'admin' ? 'MASTER ADMIN' : user.name.split(' ')[0]}
-          </span>
-          <button onClick={handleLogout} className="text-red-300 p-1"><LogOut className="w-4 h-4" /></button>
+        {/* Amazon Pin-code & Location Bar */}
+        <div className="bg-[#232F3E] text-slate-200 px-3.5 py-1.5 text-[11px] flex items-center justify-between border-t border-slate-700">
+          <div className="flex items-center gap-1.5 truncate">
+            <MapPin className="w-3.5 h-3.5 text-[#FF9900] flex-shrink-0" />
+            <span className="truncate">डिलीवरी व सर्विस: <strong>मानसरोवर, जयपुर - 302020</strong></span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </div>
+          <span className="text-[10px] text-emerald-400 font-bold flex-shrink-0">● 45m एक्सप्रेस</span>
         </div>
       </header>
 
       {/* Offer Strip */}
       {broadcast.active && broadcast.text && (
-        <div className="bg-yellow-400 text-blue-950 px-4 py-2 font-black text-xs flex items-center justify-between shadow-sm">
+        <div className="bg-[#FF9900] text-slate-950 px-4 py-2 font-black text-xs flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2 truncate">
-            <Megaphone className="w-4 h-4 flex-shrink-0 fill-blue-950 animate-bounce" />
+            <Megaphone className="w-4 h-4 flex-shrink-0 fill-slate-950 animate-bounce" />
             <span className="truncate">{broadcast.text}</span>
           </div>
-          <span className="text-[10px] uppercase bg-blue-950 text-white px-2 py-0.5 rounded-full font-bold ml-2">ऑफर</span>
+          <span className="text-[10px] uppercase bg-[#131921] text-white px-2 py-0.5 rounded-full font-bold ml-2">ऑफर</span>
         </div>
       )}
 
       {/* Main Container */}
-      <main className="max-w-xl mx-auto p-4 space-y-4">
+      <main className="max-w-xl mx-auto p-3.5 space-y-4">
         
-        {/* SOS */}
-        <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-3.5 rounded-2xl shadow-lg flex justify-between items-center">
+        {/* 24x7 Emergency SOS Banner */}
+        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white p-3.5 rounded-2xl shadow-lg flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <div className="bg-white/20 p-2 rounded-xl animate-pulse">
               <AlertTriangle className="w-5 h-5 text-yellow-300" />
@@ -535,16 +579,18 @@ export default function App() {
               <p className="text-[11px] text-red-100">15 मिनट में इलेक्ट्रीशियन सहायता</p>
             </div>
           </div>
-          <a href={`tel:${ADMIN_PHONE}`} className="bg-yellow-400 text-blue-950 font-black text-xs px-3.5 py-2 rounded-xl shadow">SOS कॉल</a>
+          <a href={`tel:${ADMIN_PHONE}`} className="bg-[#FF9900] text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow active:scale-95 transition">SOS कॉल</a>
         </div>
 
-        {/* ================= ADMIN WORKSPACE ================= */}
+        {/* ============================================================== */}
+        {/* ==================== 🏆 ADMIN WORKSPACE ======================= */}
+        {/* ============================================================== */}
         {activeTab === 'admin' && user.role === 'admin' && (
           <div className="space-y-4">
             
-            <div className="bg-gradient-to-br from-[#0B1E3D] via-[#102A56] to-[#1E3A8A] text-white p-5 rounded-3xl shadow-xl border border-yellow-400/30 flex justify-between items-start">
+            <div className="bg-gradient-to-br from-[#131921] via-[#232F3E] to-[#131921] text-white p-5 rounded-3xl shadow-xl border border-yellow-400/30 flex justify-between items-start">
               <div>
-                <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">Executive Center</span>
+                <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">Executive Center</span>
                 <h2 className="text-xl font-black mt-1.5">एडमिन कंट्रोल डैशबोर्ड</h2>
                 <p className="text-xs text-blue-200">हेल्पलाइन: +91 {ADMIN_PHONE}</p>
               </div>
@@ -569,17 +615,17 @@ export default function App() {
 
             {/* Subtabs */}
             <div className="bg-white p-1 rounded-2xl border flex justify-between shadow-sm overflow-x-auto text-[11px] font-bold">
-              <button onClick={() => setAdminSubTab('metrics')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'metrics' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>📋 आर्डर्स व बिलिंग ({bookings.length})</button>
-              <button onClick={() => setAdminSubTab('payment')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'payment' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>💳 UPI व QR सेटिंग</button>
-              <button onClick={() => setAdminSubTab('services')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'services' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>⚡ सर्विसेज</button>
-              <button onClick={() => setAdminSubTab('products')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'products' ? 'bg-[#0B1E3D] text-yellow-400' : 'text-slate-500'}`}>📦 स्टोर</button>
+              <button onClick={() => setAdminSubTab('metrics')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'metrics' ? 'bg-[#131921] text-[#FF9900]' : 'text-slate-500'}`}>📋 आर्डर्स व बिलिंग ({bookings.length})</button>
+              <button onClick={() => setAdminSubTab('payment')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'payment' ? 'bg-[#131921] text-[#FF9900]' : 'text-slate-500'}`}>💳 UPI व QR</button>
+              <button onClick={() => setAdminSubTab('services')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'services' ? 'bg-[#131921] text-[#FF9900]' : 'text-slate-500'}`}>⚡ सर्विसेज</button>
+              <button onClick={() => setAdminSubTab('products')} className={`flex-1 py-2 px-2 rounded-xl whitespace-nowrap ${adminSubTab === 'products' ? 'bg-[#131921] text-[#FF9900]' : 'text-slate-500'}`}>📦 स्टोर</button>
             </div>
 
             {/* 1. ORDERS LIST WITH STATUS & REOPEN */}
             {adminSubTab === 'metrics' && (
               <div className="bg-white p-4 rounded-3xl border space-y-3 shadow-sm">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-black text-xs text-slate-800">लाइव आर्डर्स (विवरण देखने के लिए आर्डर पर टैप करें)</h3>
+                  <h3 className="font-black text-xs text-slate-800">लाइव आर्डर्स (आर्डर पर क्लिक करके फुल डिटेल्स देखें)</h3>
                   <span className="text-[10px] text-blue-900 font-bold">क्लिक = फुल व्यू</span>
                 </div>
 
@@ -624,7 +670,7 @@ export default function App() {
                           </span>
                           <button 
                             onClick={() => handleReopenService(b)}
-                            className="bg-amber-500 hover:bg-amber-600 text-blue-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow"
+                            className="bg-[#FF9900] text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow"
                           >
                             <RotateCcw className="w-3 h-3" /> री-ओपन (अनलॉक)
                           </button>
@@ -747,138 +793,256 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= CUSTOMER ORDERS VIEW ================= */}
+        {/* ============================================================== */}
+        {/* ============= 📦 AMAZON-STYLE CUSTOMER ORDERS ================ */}
+        {/* ============================================================== */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <h2 className="font-black text-base text-slate-800">मेरे आर्डर व लाइव बिलिंग</h2>
-              <span className="text-[10px] text-blue-900 font-bold">आर्डर पर क्लिक करें</span>
+              <h2 className="font-black text-base text-slate-900">मेरे आर्डर व लाइव ट्रैकिंग</h2>
+              <span className="text-[10px] text-slate-500 font-bold">आर्डर पर टैप करके रसीद देखें</span>
             </div>
 
-            {bookings.filter(b => b.customerPhone === user.phone).map((b) => (
-              <div key={b.docId} className="bg-white p-4 rounded-3xl border shadow-sm space-y-3">
-                
-                <div onClick={() => setCustDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-50 p-1 rounded-2xl transition">
-                  <div>
-                    <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
-                    <h4 className="font-black text-sm text-slate-900">{b.serviceName}</h4>
-                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {b.createdAt ? new Date(b.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+            {bookings.filter(b => b.customerPhone === user.phone).length === 0 ? (
+              <div className="bg-white p-8 rounded-3xl text-center border text-xs text-slate-500 space-y-3 shadow-sm">
+                <Clock className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="font-bold">आपने अभी तक कोई सर्विस बुक नहीं की है।</p>
+                <button onClick={() => setActiveTab('home')} className="bg-[#131921] text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow">
+                  सर्विस बुक करें
+                </button>
+              </div>
+            ) : (
+              bookings.filter(b => b.customerPhone === user.phone).map((b) => (
+                <div key={b.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                  
+                  {/* Clickable Order Header */}
+                  <div onClick={() => setCustDetailBooking(b)} className="flex justify-between items-start cursor-pointer hover:bg-slate-50 p-1 rounded-2xl transition">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-[10px] text-slate-400">
+                          {b.createdAt ? new Date(b.createdAt).toLocaleDateString('hi-IN') : 'आज'}
+                        </span>
+                      </div>
+                      <h4 className="font-black text-sm text-slate-900 mt-0.5">{b.serviceName}</h4>
+                      <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" /> स्लॉट: {b.slot}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-black text-slate-900">₹{b.finalTotal || b.price}</span>
+                      <span className={`text-[10px] font-black block mt-0.5 ${b.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {b.paymentStatus === 'paid' ? '✔ पेड (Paid)' : '⏳ पेमेंट बाकी'}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-black text-slate-900">₹{b.finalTotal || b.price}</span>
-                    <span className={`text-[10px] font-black block mt-0.5 ${b.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                      {b.paymentStatus === 'paid' ? '✔ भुगतान पूर्ण' : '⏳ भुगतान बाकी'}
-                    </span>
+
+                  {/* Amazon Trademark Vertical / Step Progress Bar */}
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-blue-900 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> आर्डर दर्ज
+                      </span>
+                      <span className={b.status !== 'Placed' ? 'text-blue-900 flex items-center gap-1' : 'text-slate-300'}>
+                        {b.status !== 'Placed' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : null} स्वीकृत
+                      </span>
+                      <span className={b.status === 'On The Way' || b.status === 'Completed' ? 'text-purple-700 flex items-center gap-1 font-black' : 'text-slate-300'}>
+                        <Truck className="w-3.5 h-3.5" /> रास्ते में
+                      </span>
+                      <span className={b.status === 'Completed' ? 'text-emerald-600 flex items-center gap-1 font-black' : 'text-slate-300'}>
+                        <CheckCircle2 className="w-3.5 h-3.5" /> पूरा
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-500 ${
+                        b.status === 'Placed' ? 'w-1/4 bg-amber-400' :
+                        b.status === 'Confirmed' ? 'w-2/4 bg-blue-600' :
+                        b.status === 'On The Way' ? 'w-3/4 bg-purple-600' : 'w-full bg-emerald-600'
+                      }`} />
+                    </div>
                   </div>
-                </div>
 
-                <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-bold">
-                    <span className="text-blue-900 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> दर्ज</span>
-                    <span className={b.status !== 'Placed' ? 'text-blue-900' : 'text-slate-300'}>स्वीकृत</span>
-                    <span className={b.status === 'On The Way' || b.status === 'Completed' ? 'text-purple-700 flex items-center gap-1' : 'text-slate-300'}><Truck className="w-3.5 h-3.5" /> रास्ते में</span>
-                    <span className={b.status === 'Completed' ? 'text-emerald-600 flex items-center gap-1' : 'text-slate-300'}><CheckCircle2 className="w-3.5 h-3.5" /> पूरा</span>
-                  </div>
-
-                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-500 ${
-                      b.status === 'Placed' ? 'w-1/4 bg-yellow-400' :
-                      b.status === 'Confirmed' ? 'w-2/4 bg-blue-600' :
-                      b.status === 'On The Way' ? 'w-3/4 bg-purple-600' : 'w-full bg-emerald-600'
-                    }`} />
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setCustDetailBooking(b)} 
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1"
-                  >
-                    <Info className="w-3.5 h-3.5 text-blue-900" /> फोटो व रसीद देखें
-                  </button>
-
-                  {b.isBilled && b.paymentStatus !== 'paid' && (
+                  {/* Quick Action Button Strip */}
+                  <div className="flex gap-2">
                     <button 
-                      onClick={() => setCustomerPayBooking(b)} 
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1"
+                      onClick={() => setCustDetailBooking(b)} 
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1 shadow-sm"
                     >
-                      <QrCode className="w-3.5 h-3.5" /> बिल भुगतान (₹{b.finalTotal})
+                      <FileText className="w-3.5 h-3.5 text-blue-900" /> फोटो प्रूफ व रसीद
+                    </button>
+
+                    {b.isBilled && b.paymentStatus !== 'paid' && (
+                      <button 
+                        onClick={() => setCustomerPayBooking(b)} 
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs shadow-md flex items-center justify-center gap-1"
+                      >
+                        <QrCode className="w-3.5 h-3.5" /> बिल भरें (₹{b.finalTotal})
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Rating Prompt */}
+                  {b.status === 'Completed' && !b.rating && (
+                    <button onClick={() => setReviewModalBooking(b)} className="w-full bg-[#FF9900] text-slate-950 font-black text-xs py-2 rounded-xl flex items-center justify-center gap-1 shadow">
+                      <Star className="w-3.5 h-3.5 fill-slate-950" /> सर्विस को रेटिंग दें / शिकायत दर्ज करें
                     </button>
                   )}
                 </div>
-
-                {b.status === 'Completed' && !b.rating && (
-                  <button onClick={() => setReviewModalBooking(b)} className="w-full bg-yellow-400 text-blue-950 font-black text-xs py-2 rounded-xl flex items-center justify-center gap-1 shadow">
-                    <Star className="w-3.5 h-3.5 fill-blue-950" /> सर्विस को रेटिंग दें / शिकायत दर्ज करें
-                  </button>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
-        {/* ================= HOME VIEW ================= */}
+        {/* ============================================================== */}
+        {/* ================= 🏠 URBAN COMPANY STYLE HOME ================ */}
+        {/* ============================================================== */}
         {activeTab === 'home' && (
           <div className="space-y-4">
+            
+            {/* Amazon Search Bar */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="सर्च करें: पंखा, इनवर्टर, तार, स्विच..." className="w-full pl-10 pr-4 py-2.5 bg-white border rounded-2xl text-xs font-semibold shadow-sm" />
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                placeholder="सर्च करें: पंखा रिपेयर, इनवर्टर, तार, स्विच..." 
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-900" 
+              />
             </div>
 
-            <div className="bg-gradient-to-r from-[#0B1E3D] via-[#102A56] to-[#1E3A8A] text-white p-5 rounded-3xl shadow-lg">
-              <span className="bg-yellow-400 text-blue-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">★ 45 मिनट में इलेक्ट्रीशियन घर पर</span>
+            {/* Urban Company Circular Category Slider */}
+            <div className="flex gap-2.5 overflow-x-auto py-1 no-scrollbar">
+              {categories.map((c) => {
+                const Icon = c.icon;
+                return (
+                  <button 
+                    key={c.id} 
+                    onClick={() => setSelectedCategory(c.id)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl min-w-[70px] transition ${
+                      selectedCategory === c.id ? 'bg-[#131921] text-[#FF9900] shadow' : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl ${selectedCategory === c.id ? 'bg-white/10' : 'bg-slate-50'}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-bold whitespace-nowrap">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Flipkart Festive Banner */}
+            <div className="bg-gradient-to-r from-[#131921] via-[#232F3E] to-[#131921] text-white p-5 rounded-3xl shadow-lg relative overflow-hidden">
+              <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                ★ 45 मिनट में इलेक्ट्रीशियन घर पर
+              </span>
               <h1 className="text-xl font-black mt-2 leading-tight">प्रमाणित इलेक्ट्रीशियन और 100% असली सामान</h1>
+              <p className="text-xs text-slate-300 mt-1">शॉर्ट सर्किट, पंखा, मोटर, इनवर्टर व वायरिंग रिपेयर</p>
+              
               <div className="flex gap-2 mt-4">
-                <a href={`tel:${ADMIN_PHONE}`} className="bg-yellow-400 text-blue-950 text-xs font-black px-3.5 py-2 rounded-xl flex items-center gap-1 shadow"><PhoneCall className="w-3.5 h-3.5" /> {ADMIN_PHONE}</a>
-                <a href={`https://wa.me/91${ADMIN_PHONE}?text=नमस्ते`} className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow"><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</a>
+                <a href={`tel:${ADMIN_PHONE}`} className="bg-[#FF9900] text-slate-950 text-xs font-black px-3.5 py-2 rounded-xl flex items-center gap-1 shadow">
+                  <PhoneCall className="w-3.5 h-3.5" /> {ADMIN_PHONE}
+                </a>
+                <a href={`https://wa.me/91${ADMIN_PHONE}?text=नमस्ते,%20मुझे%20इलेक्ट्रीशियन%20चाहिए`} className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 shadow">
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </a>
               </div>
             </div>
 
+            {/* Services Cards (Amazon E-Commerce Card Style) */}
             <div className="space-y-2.5">
-              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सेवाएं (Services)</h2>
-              {services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => (
-                <div key={s.docId} className="bg-white p-3.5 rounded-2xl border flex justify-between items-center shadow-sm">
-                  <div>
-                    <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
-                    <div className="text-xs font-black text-blue-800 mt-0.5">शुरुआती: ₹{s.price} <span className="text-[10px] text-slate-400">(विजिट: ₹{s.visiting || 99})</span></div>
-                  </div>
-                  <button onClick={() => setDetailService(s)} className="bg-[#1E3A8A] text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1">
-                    विवरण व बुक <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+              <div className="flex justify-between items-center">
+                <h2 className="font-black text-sm text-slate-900">लोकप्रिय सेवाएं (Popular Services)</h2>
+                <span className="text-[10px] text-blue-900 font-bold bg-blue-50 px-2 py-0.5 rounded-full">30 दिन वारंटी</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {services
+                  .filter(s => {
+                    if (selectedCategory !== 'all' && s.category && s.category !== selectedCategory) return false;
+                    return s.name.toLowerCase().includes(searchQuery.toLowerCase());
+                  })
+                  .map((s) => (
+                    <div key={s.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center hover:shadow-md transition">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            ★ {s.rating || "4.8"}
+                          </span>
+                          <span className="text-[10px] text-slate-400">({s.bookedCount || "1,200+"} बुकिंग्स)</span>
+                        </div>
+                        <h3 className="font-bold text-xs text-slate-900">{s.name}</h3>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-base font-black text-slate-900">₹{s.price}</span>
+                          <span className="text-xs text-slate-400 line-through">₹{s.mrp || s.price + 100}</span>
+                          <span className="text-[10px] text-emerald-600 font-bold">जांच शुल्क: ₹{s.visiting || 99}</span>
+                        </div>
+                      </div>
+
+                      {/* Detail View Trigger */}
+                      <button 
+                        onClick={() => setDetailService(s)} 
+                        className="bg-[#131921] hover:bg-[#0F1111] text-white font-black text-xs px-3.5 py-2 rounded-2xl shadow active:scale-95 transition flex items-center gap-1"
+                      >
+                        विवरण व बुक <ChevronRight className="w-3.5 h-3.5 text-[#FF9900]" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
             </div>
 
+            {/* Products Store Section */}
             <div className="space-y-2.5 pt-2">
-              <h2 className="font-black text-sm text-slate-800">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
-              {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => (
-                <div key={p.docId} className="bg-white p-3.5 rounded-2xl border flex justify-between items-center shadow-sm">
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block">{p.brand}</span>
-                    <h3 className="font-bold text-xs text-slate-900">{p.name}</h3>
-                    <div className="text-sm font-black text-slate-900 mt-0.5">₹{p.price}</div>
-                  </div>
-                  <button onClick={() => window.open(`https://wa.me/91${ADMIN_PHONE}?text=${encodeURIComponent(`सामान आर्डर: ${p.name}`)}`, '_blank')} className="bg-yellow-400 text-blue-950 font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1 shadow"><ShoppingBag className="w-3.5 h-3.5" /> खरीदें</button>
-                </div>
-              ))}
+              <div className="flex justify-between items-center">
+                <h2 className="font-black text-sm text-slate-900">इलेक्ट्रिकल सामान स्टोर (Products)</h2>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">100% ओरिजिनल</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {products
+                  .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((p) => (
+                    <div key={p.docId} className="bg-white p-3.5 rounded-2xl border flex justify-between items-center shadow-sm">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block">{p.brand}</span>
+                        <h3 className="font-bold text-xs text-slate-900">{p.name}</h3>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-sm font-black text-slate-900">₹{p.price}</span>
+                          {p.mrp && <span className="text-[10px] text-slate-400 line-through">₹{p.mrp}</span>}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => window.open(`https://wa.me/91${ADMIN_PHONE}?text=${encodeURIComponent(`सामान आर्डर: ${p.name}`)}`, '_blank')} 
+                        className="bg-[#FF9900] text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl flex items-center gap-1 shadow"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" /> आर्डर
+                      </button>
+                    </div>
+                  ))}
+              </div>
             </div>
+
           </div>
         )}
       </main>
 
-      {/* ================= MODAL 1: SERVICE DETAILS ================= */}
+      {/* ================= MODAL 1: SERVICE DETAILS (SPECIFICATIONS) ================= */}
       {detailService && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative">
             <button onClick={() => setDetailService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
 
             <div>
-              <span className="text-[10px] bg-blue-100 text-blue-900 font-black px-2.5 py-0.5 rounded-full uppercase">सेवा विवरण</span>
+              <span className="text-[10px] bg-blue-100 text-blue-900 font-black px-2.5 py-0.5 rounded-full uppercase">सेवा विवरण व गारंटी</span>
               <h3 className="font-black text-base text-slate-900 mt-1">{detailService.name}</h3>
-              <div className="text-sm font-black text-blue-900 mt-1">शुरुआती चार्ज: ₹{detailService.price}</div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-lg font-black text-slate-900">₹{detailService.price}</span>
+                <span className="text-xs text-slate-400 line-through">₹{detailService.mrp || detailService.price + 100}</span>
+                <span className="text-xs text-emerald-600 font-bold">30 दिन की रिपेयर गारंटी</span>
+              </div>
             </div>
 
             <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border">
@@ -886,7 +1050,7 @@ export default function App() {
             </p>
 
             <div className="space-y-2 text-xs">
-              <span className="font-bold text-slate-800 block">इस सर्विस में क्या शामिल है:</span>
+              <span className="font-bold text-slate-800 block">इस सेवा में क्या शामिल है:</span>
               {(detailService.includes || ["30 दिन की आधिकारिक गारंटी", "सुरक्षा व लोड टेस्टिंग", "ओरिजिनल स्पेयर पार्ट्स"]).map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-slate-700">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -896,24 +1060,25 @@ export default function App() {
             </div>
 
             <div className="bg-amber-50 p-2.5 rounded-2xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
-              <div>⚡ <strong>विजिटिंग व जांच शुल्क:</strong> ₹{detailService.visiting || 99} (रिपेयर कराने पर समायोजित)</div>
+              <div>⚡ <strong>विजिटिंग व जांच शुल्क:</strong> ₹{detailService.visiting || 99} (रिपेयर कराने पर बिल में समायोजित)</div>
               <div>⚡ <strong>पार्ट्स का खर्च:</strong> स्पेयर पार्ट्स लगने पर उसका खर्च फाइनल बिल में जुड़ेगा।</div>
             </div>
 
+            {/* Proceed to Booking */}
             <button 
               onClick={() => {
-                setSelectedService(detailService);
+                setBookingStepService(detailService);
                 setDetailService(null);
               }}
-              className="w-full bg-[#1E3A8A] hover:bg-[#0B1E3D] text-white font-black py-3 rounded-2xl text-xs shadow-lg flex items-center justify-center gap-1.5"
+              className="w-full bg-[#131921] hover:bg-[#0F1111] text-white font-black py-3 rounded-2xl text-xs shadow-lg flex items-center justify-center gap-1.5"
             >
-              आगे बढ़ें व स्लॉट बुक करें <ChevronRight className="w-4 h-4" />
+              तारीख व स्लॉट चुनें <ChevronRight className="w-4 h-4 text-[#FF9900]" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= MODAL 2: CUSTOMER ORDER FULL DETAILS ================= */}
+      {/* ================= MODAL 2: CUSTOMER ORDER FULL DETAILS (AMAZON RECEIPT & PHOTOS) ================= */}
       {custDetailBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8">
@@ -931,6 +1096,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Photos Display */}
             {(custDetailBooking.beforePhoto || custDetailBooking.afterPhoto) ? (
               <div className="space-y-2">
                 <span className="font-bold text-xs text-slate-800 block">काम का प्रमाणित फोटो प्रूफ:</span>
@@ -960,6 +1126,7 @@ export default function App() {
               </p>
             )}
 
+            {/* Itemized Bill Breakdown */}
             {custDetailBooking.isBilled ? (
               <div className="bg-slate-50 p-3.5 rounded-2xl border text-xs space-y-1.5">
                 <span className="font-bold text-slate-800 block">पक्का फाइनल बिल विवरण:</span>
@@ -972,6 +1139,7 @@ export default function App() {
               </div>
             ) : null}
 
+            {/* Payment Status Pill */}
             <div className={`p-3 rounded-2xl text-center text-xs font-bold border ${
               custDetailBooking.paymentStatus === 'paid' 
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
@@ -1039,7 +1207,7 @@ export default function App() {
 
               <button 
                 onClick={() => handleReopenService(adminDetailBooking)}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-blue-950 font-black py-2 rounded-xl flex items-center justify-center gap-1 shadow"
+                className="w-full bg-[#FF9900] text-slate-950 font-black py-2 rounded-xl flex items-center justify-center gap-1 shadow"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> सर्विस दोबारा खोलें (Reopen Service)
               </button>
@@ -1048,7 +1216,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL 4: ADMIN UPLOADS PHOTO PROOF & GENERATES BILL ================= */}
+      {/* ================= MODAL 4: ADMIN PHOTO PROOF & FINAL BILL ================= */}
       {billModalBooking && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <form onSubmit={handleGenerateFinalBill} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative my-8">
@@ -1156,13 +1324,13 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL 6: BOOKING FORM ================= */}
-      {selectedService && (
+      {/* ================= MODAL 6: STEP 2 BOOKING FORM ================= */}
+      {bookingStepService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={handleBooking} className="bg-white p-5 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
-            <button type="button" onClick={() => setSelectedService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={() => setBookingStepService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
             <h3 className="font-black text-sm text-slate-900">सर्विस बुकिंग</h3>
-            <p className="text-xs text-blue-800 font-bold">{selectedService.name} (अनुमानित: ₹{selectedService.price})</p>
+            <p className="text-xs text-blue-800 font-bold">{bookingStepService.name} (अनुमानित: ₹{bookingStepService.price})</p>
             <div className="bg-slate-50 p-2.5 rounded-xl border text-slate-600">
               <div><strong>ग्राहक:</strong> {user.name} (📞 {user.phone})</div>
             </div>
@@ -1178,7 +1346,7 @@ export default function App() {
               <label className="block font-bold mb-1">मकान नंबर, गली व लैंडमार्क</label>
               <textarea required name="custAddr" rows={2} placeholder="पूरा पता दर्ज करें" className="w-full p-2 border rounded-xl"></textarea>
             </div>
-            <button type="submit" className="w-full bg-blue-900 hover:bg-blue-950 text-white py-2.5 rounded-xl font-bold shadow text-xs">
+            <button type="submit" className="w-full bg-[#131921] hover:bg-[#0F1111] text-white py-2.5 rounded-xl font-bold shadow text-xs">
               कन्फर्म बुकिंग (Live Cloud Sync)
             </button>
           </form>
@@ -1266,16 +1434,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t flex justify-around py-2.5 z-40 shadow-lg">
-        <button onClick={() => setActiveTab('home')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'home' ? 'text-blue-900' : 'text-slate-400'}`}>
+      {/* 5. AMAZON-STYLE BOTTOM NAVIGATION BAR */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 flex justify-around py-2.5 z-40 shadow-lg">
+        <button onClick={() => setActiveTab('home')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'home' ? 'text-[#FF9900]' : 'text-slate-400'}`}>
           <Zap className="w-4 h-4" /> होम
         </button>
-        <button onClick={() => setActiveTab('orders')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'orders' ? 'text-blue-900' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('orders')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'orders' ? 'text-[#FF9900]' : 'text-slate-400'}`}>
           <Clock className="w-4 h-4" /> मेरे आर्डर
         </button>
         {user?.role === 'admin' && (
-          <button onClick={() => setActiveTab('admin')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'admin' ? 'text-yellow-600' : 'text-slate-400'}`}>
+          <button onClick={() => setActiveTab('admin')} className={`text-xs font-bold flex flex-col items-center gap-0.5 ${activeTab === 'admin' ? 'text-[#FF9900]' : 'text-slate-400'}`}>
             <LayoutDashboard className="w-4 h-4" /> एडमिन डैशबोर्ड
           </button>
         )}
