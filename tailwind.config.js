@@ -8,10 +8,13 @@ export default {
     extend: {
       colors: {
         brand: {
-          dark: '#0B1E3D',
-          navy: '#1E3A8A',
-          blue: '#2563EB',
-          yellow: '#FACC15',
+          orange: '#FF9900',
+          orangeHover: '#E88B00',
+          dark: '#0F1111',
+          navy: '#131921',
+          slate: '#232F3E',
+          accent: '#2563EB',
+          canvas: '#F1F5F9'
         }
       }
     },
