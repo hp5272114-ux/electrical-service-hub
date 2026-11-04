@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Component } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, doc, setDoc, getDoc, 
@@ -8,15 +8,16 @@ import {
   Zap, Wrench, ShoppingBag, ShoppingCart, Heart, Bell, Search, 
   MapPin, ChevronDown, ChevronRight, ArrowLeft, Star, PhoneCall, 
   Shield, AlertTriangle, Clock, Truck, CheckCircle2, User, 
-  LayoutGrid, ClipboardList, SlidersHorizontal, ArrowUpDown, 
-  Flame, Share2, Plus, Minus, Trash2, Camera, QrCode, FileText, 
-  Check, Lock, RotateCcw, Sparkles, Filter, Grid, List 
+  LayoutGrid, ClipboardList, SlidersHorizontal, Plus, Minus, 
+  Trash2, Camera, QrCode, FileText, Check, Lock, RotateCcw, 
+  Sparkles, Filter, Grid, List, Tag, Share2, HelpCircle, X, 
+  CheckSquare, LogOut, LogIn, ExternalLink, RefreshCw, Send, 
+  AlertCircle, Calendar, ThumbsUp, MessageSquare, Info 
 } from 'lucide-react';
 
-const ADMIN_PHONE = "6367626276";
-const ADMIN_PIN = "2026";
-
-// हेमंत जी की लाइव Firebase Keys
+// ============================================================================
+// 1. FIREBASE CONFIGURATION (100% PURE CLIENT CLOUD INTEGRATION)
+// ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDzD7cmC7h_uSOB22uNBvPlaO7U1w6Y1_k",
   authDomain: "electrical-service-hub-742d9.firebaseapp.com",
@@ -29,87 +30,177 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-export default function App() {
+// ============================================================================
+// 2. ERROR BOUNDARY (CRASH SHIELD - NO WHITE SCREEN GUARANTEE)
+// ============================================================================
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, errorMsg: '' };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, errorMsg: error?.message || 'सिस्टम रिकवरी' };
+  }
+  componentDidCatch(error, info) {
+    console.error("Critical Runtime Caught:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0B1528] text-white p-6 flex flex-col items-center justify-center text-center font-sans max-w-md mx-auto">
+          <AlertTriangle className="w-16 h-16 text-[#FF9900] mb-4 animate-bounce" />
+          <h2 className="text-xl font-black">विद्युत सेवा हब • रिकवरी मोड</h2>
+          <p className="text-xs text-slate-300 mt-2 bg-white/10 p-3 rounded-2xl border border-white/10">
+            {this.state.errorMsg}
+          </p>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('esh_cart_pure');
+              window.location.reload();
+            }}
+            className="mt-6 bg-[#FF9900] text-slate-950 font-black px-6 py-3 rounded-2xl text-xs shadow-xl active:scale-95 transition"
+          >
+            ऐप पुनः लोड करें (Reload App)
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ============================================================================
+// 3. MAIN PURE CUSTOMER MARKETPLACE APPLICATION
+// ============================================================================
+function CustomerMarketplace() {
   const [showSplash, setShowSplash] = useState(true);
 
-  // User State
+  // Customer Authentication Session
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('esh_user_v4');
-      return saved ? JSON.parse(saved) : { name: "Guest User", phone: "9829012345", role: "customer" };
+      const saved = localStorage.getItem('esh_customer_session');
+      return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;
     }
   });
 
-  // Navigation State matching Bottom Nav
-  // 'home' | 'categories' | 'cart' | 'orders' | 'account' | 'store'
-  const [activeTab, setActiveTab] = useState('home');
+  const [authModal, setAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authPhone, setAuthPhone] = useState('');
+  const [authPin, setAuthPin] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authConfirmPin, setAuthConfirmPin] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // Customer Marketplace States
+  // Primary Navigation
+  // 'home' | 'categories' | 'store' | 'cart' | 'orders' | 'account'
+  const [activeTab, setActiveTab] = useState('home');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
   const [deliveryLocation, setDeliveryLocation] = useState('Jaipur, Rajasthan');
 
-  // Cart & Wishlist
+  // Interactive Product & Service Detail Views
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+  const [bookingService, setBookingService] = useState(null);
+  const [activeBookingDetail, setActiveBookingDetail] = useState(null);
+  const [activeOrderDetail, setActiveOrderDetail] = useState(null);
+  const [checkoutModal, setCheckoutModal] = useState(false);
+  const [notificationModal, setNotificationModal] = useState(false);
+  const [reviewModal, setReviewModal] = useState(null);
+  const [ratingVal, setRatingVal] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [complaintText, setComplaintText] = useState('');
+
+  // Cart & Wishlist with Database & Local Persistence
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem('esh_cart_v4');
-      return saved ? JSON.parse(saved) : [
-        { docId: 'p1', name: "Orient Ceiling Fan (1200mm)", price: 1399, mrp: 1999, discount: "-30%", quantity: 1, image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400" },
-        { docId: 'p2', name: "Philips LED Bulb (9W)", price: 89, mrp: 149, discount: "-40%", quantity: 1, image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=400" }
-      ];
+      const saved = localStorage.getItem('esh_cart_pure');
+      return saved ? JSON.parse(saved) : [];
     } catch (e) {
       return [];
     }
   });
 
-  const [wishlist, setWishlist] = useState(['p1', 'p3']);
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('esh_wishlist_pure');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
-  // Modals
-  const [detailProduct, setDetailProduct] = useState(null);
-  const [detailService, setDetailService] = useState(null);
-  const [bookingStepService, setBookingStepService] = useState(null);
-  const [custDetailBooking, setCustDetailBooking] = useState(null);
-  const [customerPayBooking, setCustomerPayBooking] = useState(null);
-  const [checkoutModal, setCheckoutModal] = useState(false);
-  const [loginModal, setLoginModal] = useState(false);
+  // Saved Addresses
+  const [savedAddresses, setSavedAddresses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('esh_addresses_pure');
+      return saved ? JSON.parse(saved) : [
+        { id: 'addr_1', line: '42, Shanti Kunj, Civil Lines', city: 'Jaipur', pincode: '302006' }
+      ];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
 
-  // Real-time Firestore Collections
+  // Firestore Realtime Collections
   const [products, setProducts] = useState([]);
   const [services, setServices] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-  // 1. Splash Screen
+  // Notifications Feed
+  const [notifications, setNotifications] = useState([
+    { id: 'n1', title: 'स्वागत है!', desc: 'विद्युत सेवा हब में आपका स्वागत है। 100% ओरिजिनल सामान व सेवाएँ उपलब्ध।', time: 'अभी', unread: true },
+    { id: 'n2', title: 'समर डिस्काउंट लाइव', desc: 'सीलिंग फैन रिपेयर पर 20% तक की विशेष छूट पाएं।', time: '1 घंटा पहले', unread: true }
+  ]);
+
+  // 1. Splash Screen Timer
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1800);
+    const timer = setTimeout(() => setShowSplash(false), 1600);
     return () => clearTimeout(timer);
   }, []);
 
-  // Save Cart
+  // Save Cart, Wishlist, Addresses
   useEffect(() => {
     try {
-      localStorage.setItem('esh_cart_v4', JSON.stringify(cart));
+      localStorage.setItem('esh_cart_pure', JSON.stringify(cart));
     } catch (e) {}
   }, [cart]);
 
-  // 2. Real-Time Cloud Listeners with UI-Matched Seed Data
   useEffect(() => {
-    // Products matching screenshot exactly
+    try {
+      localStorage.setItem('esh_wishlist_pure', JSON.stringify(wishlist));
+    } catch (e) {}
+  }, [wishlist]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('esh_addresses_pure', JSON.stringify(savedAddresses));
+    } catch (e) {}
+  }, [savedAddresses]);
+
+  // 2. Real-Time Cloud Synchronization
+  useEffect(() => {
+    // Products Listener
     const unsubProducts = onSnapshot(collection(db, "products"), async (snap) => {
       if (snap.empty) {
-        const seedProducts = [
+        const defaultProducts = [
           { 
             name: "Orient Ceiling Fan (1200mm)", 
-            brand: "Orient", 
+            brand: "Orient Electric", 
             category: "fans", 
             price: 1399, 
             mrp: 1999, 
             discount: "-30%", 
-            rating: "4.6 (5.2k)", 
-            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
-            description: "हाई-स्पीड 1200mm सीलिंग फैन, 100% कॉपर वाइंडिंग और रिब्ड एल्युमिनियम ब्लेड्स।"
+            rating: "4.6", 
+            reviewsCount: "5.2k", 
+            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
+            description: "1200mm हाई-स्पीड सीलिंग फैन, 100% कॉपर वाइंडिंग और रिब्ड एल्युमिनियम ब्लेड्स।",
+            specs: { "स्वीप साइज": "1200 mm", "पावर": "70W", "आरपीएम": "380 RPM", "वारंटी": "24 माह" }
           },
           { 
             name: "Philips LED Bulb (9W)", 
@@ -118,9 +209,11 @@ export default function App() {
             price: 89, 
             mrp: 149, 
             discount: "-40%", 
-            rating: "4.7 (8.7k)", 
-            image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=400",
-            description: "क्रिस्टल व्हाइट कूल डेलाइट, आईकम्फर्ट तकनीक, 90% बिजली बचत।"
+            rating: "4.7", 
+            reviewsCount: "8.7k", 
+            image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=500",
+            description: "क्रिस्टल व्हाइट कूल डेलाइट, आईकम्फर्ट तकनीक, 90% बिजली की बचत।",
+            specs: { "वॉटेज": "9 Watt", "बेस कैप": "B22", "कलर": "Cool Daylight", "वारंटी": "1 वर्ष" }
           },
           { 
             name: "Havells Switch Board (6 Module)", 
@@ -129,9 +222,11 @@ export default function App() {
             price: 299, 
             mrp: 399, 
             discount: "-25%", 
-            rating: "4.5 (3.1k)", 
-            image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=400",
-            description: "मॉड्यूलर प्लेट और सुरक्षा सॉकेट, फ्लेम रिटार्डेंट पॉलीकार्बोनेट।"
+            rating: "4.5", 
+            reviewsCount: "3.1k", 
+            image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500",
+            description: "मॉड्यूलर प्लेट और सुरक्षा सॉकेट, फ्लेम रिटार्डेंट पॉलीकार्बोनेट शीट।",
+            specs: { "मॉड्यूल": "6 Module", "कलर": "Glossy White", "मटेरियल": "Polycarbonate" }
           },
           { 
             name: "Finolex Wire (1.5 sqmm)", 
@@ -140,72 +235,58 @@ export default function App() {
             price: 649, 
             mrp: 999, 
             discount: "-35%", 
-            rating: "4.6 (4.8k)", 
-            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400",
-            description: "100% शुद्ध कॉपर वायर 90 मीटर, आईएसआई प्रमाणित।"
-          },
-          { 
-            name: "Luminous Inverter 900VA", 
-            brand: "Luminous", 
-            category: "inverters", 
-            price: 5499, 
-            mrp: 6999, 
-            discount: "-21%", 
-            rating: "4.8 (2.1k)", 
-            image: "https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=400",
-            description: "प्योर साइन वेव इन्वर्टर, स्मार्ट डिस्प्ले।"
-          },
-          { 
-            name: "Schneider 32A DP MCB", 
-            brand: "Schneider", 
-            category: "mcb", 
-            price: 499, 
-            mrp: 650, 
-            discount: "-23%", 
-            rating: "4.7 (1.9k)", 
-            image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=400",
-            description: "10kA ब्रेकिंग कैपेसिटी, शॉर्ट सर्किट व ओवरलोड प्रोटेक्शन।"
+            rating: "4.6", 
+            reviewsCount: "4.8k", 
+            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
+            description: "100% शुद्ध कॉपर वायर 90 मीटर कॉइल, आग प्रतिरोधी IS/IEC प्रमाणित।",
+            specs: { "गेज": "1.5 Sq mm", "लंबाई": "90 Meters", "वोल्टेज": "1100V" }
           }
         ];
-        for (const p of seedProducts) await addDoc(collection(db, "products"), p);
+        for (const p of defaultProducts) await addDoc(collection(db, "products"), p);
       } else {
         setProducts(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
       }
-    });
+    }, (err) => console.log("Products Sync:", err));
 
-    // Services matching screenshot exactly
+    // Services Listener
     const unsubServices = onSnapshot(collection(db, "services"), async (snap) => {
       if (snap.empty) {
-        const seedServices = [
+        const defaultServices = [
           { 
             name: "Fan Repair", 
             nameHi: "सीलिंग पंखा रिपेयर",
-            category: "fan_repair",
+            category: "fans",
             price: 199, 
+            mrp: 299, 
             startingText: "₹199 onwards", 
-            rating: "★ 4.8 (12k+)", 
+            rating: "4.8", 
+            bookedCount: "12k+", 
             image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500",
-            description: "आवाज बंद करना, कैपेसिटर बदलाव, बैरिंग ग्रीसिंग और स्पीड चेकिंग।",
-            includes: ["फॉल्ट डायग्नोसिस", "30 दिन की आधिकारिक गारंटी", "स्पीड टेस्ट"]
+            description: "आवाज बंद करना, कैपेसिटर बदलाव, जाम बैरिंग, वाइब्रेशन व स्पीड समस्या का समाधान।",
+            includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर चेकिंग", "30 दिन की आधिकारिक गारंटी", "स्पीड टेस्ट"]
           },
           { 
             name: "Wiring Repair", 
-            nameHi: "वायरिंग रिपेयर व फॉल्ट",
-            category: "wiring_repair",
+            nameHi: "वायरिंग रिपेयर व फॉल्ट जांच",
+            category: "wiring",
             price: 149, 
+            mrp: 249, 
             startingText: "₹149 onwards", 
-            rating: "★ 4.7 (8k+)", 
+            rating: "4.7", 
+            bookedCount: "8k+", 
             image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
-            description: "शॉर्ट सर्किट, स्पार्किंग, न्यूट्रल लीकेज व ट्रिपिंग एमसीबी की डिजिटल जांच।",
-            includes: ["मल्टीमीटर पॉइंट टेस्टिंग", "लोड बैलेंसिंग ऑडिट", "अर्थिंग टेस्टर जांच"]
+            description: "एमसीबी ट्रिपिंग, स्पार्किंग, न्यूट्रल लीकेज व हिडन वायरिंग स्पार्किंग की डिजिटल जांच।",
+            includes: ["मल्टीमीटर पॉइंट टेस्टिंग", "लोड बैलेंसिंग टेस्ट", "अर्थिंग टेस्टर जांच", "30 दिन वारंटी"]
           },
           { 
             name: "MCB Repair", 
             nameHi: "एमसीबी व डीपी रिपेयर",
-            category: "mcb_repair",
+            category: "switchgear",
             price: 199, 
+            mrp: 299, 
             startingText: "₹199 onwards", 
-            rating: "★ 4.8 (6k+)", 
+            rating: "4.8", 
+            bookedCount: "6k+", 
             image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500",
             description: "जल चुके स्विच, ट्रिपिंग एमसीबी व न्यूट्रल फॉल्ट का स्थायी समाधान।",
             includes: ["सुरक्षित कनेक्शन", "लोड टेस्टिंग", "30 दिन वारंटी"]
@@ -213,47 +294,126 @@ export default function App() {
           { 
             name: "Inverter Installation", 
             nameHi: "इन्वर्टर इंस्टालेशन",
-            category: "inverter_install",
+            category: "inverters",
             price: 499, 
+            mrp: 699, 
             startingText: "₹499 onwards", 
-            rating: "★ 4.9 (4k+)", 
+            rating: "4.9", 
+            bookedCount: "4k+", 
             image: "https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=500",
             description: "घर के मेन लोड के साथ इन्वर्टर व बैटरी का हैवी केबल बाईपास कनेक्शन।",
-            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल टेस्टिंग"]
+            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल टेस्टिंग", "30 दिन वारंटी"]
           }
         ];
-        for (const s of seedServices) await addDoc(collection(db, "services"), s);
+        for (const s of defaultServices) await addDoc(collection(db, "services"), s);
       } else {
         setServices(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
       }
-    });
+    }, (err) => console.log("Services Sync:", err));
 
-    // Bookings listener for tracking
+    // Bookings Listener
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
       const list = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setBookings(list);
-    });
+    }, (err) => console.log("Bookings Sync:", err));
+
+    // Orders Listener
+    const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+      const list = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setOrders(list);
+    }, (err) => console.log("Orders Sync:", err));
 
     return () => {
       unsubProducts();
       unsubServices();
       unsubBookings();
+      unsubOrders();
     };
   }, []);
 
-  // Cart calculations
+  // Cart Calculations
   const cartSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
   }, [cart]);
+  const cartDeliveryFee = cartSubtotal > 999 || cartSubtotal === 0 ? 0 : 70;
+  const cartFinalTotal = cartSubtotal + cartDeliveryFee;
 
-  // Wishlist toggle
-  const toggleWishlist = (id) => {
-    setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  // 3. Customer Authentication Submit
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    if (authPhone.length !== 10 || authPin.length !== 4) {
+      return alert("कृपया 10 अंकों का फोन नंबर व 4 अंकों का पिन दर्ज करें!");
+    }
+
+    setAuthLoading(true);
+    const cleanPhone = authPhone.trim();
+
+    try {
+      const userRef = doc(db, "users", cleanPhone);
+      const userSnap = await getDoc(userRef);
+
+      if (authMode === 'register') {
+        if (!authName.trim()) {
+          setAuthLoading(false);
+          return alert("कृपया अपना पूरा नाम लिखें!");
+        }
+        if (authPin !== authConfirmPin) {
+          setAuthLoading(false);
+          return alert("दोनों पिन समान होने चाहिए!");
+        }
+        if (userSnap.exists()) {
+          setAuthLoading(false);
+          setAuthMode('login');
+          return alert("यह मोबाइल नंबर पहले से रजिस्टर्ड है! कृपया सीधे लॉगिन करें।");
+        }
+
+        const newUser = {
+          name: authName.trim(),
+          phone: cleanPhone,
+          pin: authPin.trim(),
+          role: 'customer',
+          createdAt: Date.now()
+        };
+
+        await setDoc(userRef, newUser);
+        setUser(newUser);
+        localStorage.setItem('esh_customer_session', JSON.stringify(newUser));
+        setAuthModal(false);
+        alert(`स्वागत है ${newUser.name}! आपका अकाउंट सफलतापूर्वक बन गया है।`);
+      } else {
+        if (!userSnap.exists()) {
+          setAuthLoading(false);
+          setAuthMode('register');
+          return alert("यह नंबर रजिस्टर्ड नहीं है! कृपया पहले नया खाता बनाएं।");
+        }
+        const userData = userSnap.data();
+        if (userData.pin !== authPin.trim()) {
+          setAuthLoading(false);
+          return alert("गलत पिन! कृपया सही 4-अंकों का पिन डालें।");
+        }
+        setUser(userData);
+        localStorage.setItem('esh_customer_session', JSON.stringify(userData));
+        setAuthModal(false);
+        alert(`नमस्ते ${userData.name}! लॉगिन सफल हुआ।`);
+      }
+    } catch (err) {
+      alert("प्रमाणीकरण एरर: " + err.message);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
-  // Add to cart
-  const addToCart = (product) => {
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('esh_customer_session');
+    setActiveTab('home');
+  };
+
+  // 4. Cart & Wishlist Actions
+  const handleAddToCart = (product, e) => {
+    if (e) e.stopPropagation();
     const existingIndex = cart.findIndex(i => (i.docId || i.name) === (product.docId || product.name));
     if (existingIndex > -1) {
       const updated = [...cart];
@@ -262,54 +422,100 @@ export default function App() {
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
+    // Add Notification
+    setNotifications(prev => [
+      { id: Date.now().toString(), title: 'कार्ट अपडेट', desc: `"${product.name}" आपके कार्ट में जोड़ दिया गया है।`, time: 'अभी', unread: true },
+      ...prev
+    ]);
   };
 
-  // Service Booking Submit
-  const handleServiceBooking = async (e) => {
+  const handleUpdateCartQty = (idx, delta) => {
+    const updated = cart.map((item, i) => {
+      if (i === idx) {
+        const newQty = item.quantity + delta;
+        return newQty > 0 ? { ...item, quantity: newQty } : null;
+      }
+      return item;
+    }).filter(Boolean);
+    setCart(updated);
+  };
+
+  const handleToggleWishlist = (product, e) => {
+    if (e) e.stopPropagation();
+    const id = product.docId || product.name;
+    const exists = wishlist.some(i => (i.docId || i.name) === id);
+    if (exists) {
+      setWishlist(wishlist.filter(i => (i.docId || i.name) !== id));
+    } else {
+      setWishlist([...wishlist, product]);
+    }
+  };
+
+  // 5. Service Booking Submission
+  const handleConfirmServiceBooking = async (e) => {
     e.preventDefault();
+    if (!user) {
+      setAuthModal(true);
+      return;
+    }
     const form = e.target;
-    const refCode = "ESH-" + Math.floor(100000 + Math.random() * 900000);
+    const bookingRef = "ESH-" + Math.floor(100000 + Math.random() * 900000);
+    const selectedAddr = savedAddresses[selectedAddressIndex] || { line: form.customAddress?.value || "मानसरोवर, जयपुर" };
 
     const bookingData = {
-      bookingId: refCode,
-      serviceName: bookingStepService.name,
-      price: bookingStepService.price,
-      customerName: user?.name || "ग्राहक",
-      customerPhone: user?.phone || "9829012345",
+      bookingId: bookingRef,
+      serviceId: bookingService.docId || 'srv_gen',
+      serviceName: bookingService.name,
+      price: bookingService.price,
+      customerName: user.name,
+      customerPhone: user.phone,
       slot: form.slot.value,
       scheduledDate: form.serviceDate.value,
-      address: form.address.value,
-      status: "Confirmed",
+      address: `${selectedAddr.line}, ${selectedAddr.city || 'Jaipur'}`,
+      instructions: form.instructions?.value || '',
+      paymentMode: form.paymentMode?.value || 'cash',
+      status: "Placed", // Placed -> Confirmed -> On The Way -> In Progress -> Completed -> Cancelled
       paymentStatus: "unpaid",
       createdAt: Date.now()
     };
 
     try {
       await addDoc(collection(db, "bookings"), bookingData);
-      setBookingStepService(null);
+      setBookingService(null);
       setActiveTab('orders');
-      alert(`🎉 बुकिंग दर्ज! रिफरेंस आईडी: #${refCode}`);
+      alert(`🎉 बधाई! सर्विस बुकिंग दर्ज हो गई है (ID: #${bookingRef})\nलाइव ट्रैकिंग शुरू हो गई है।`);
     } catch (err) {
-      alert("एरर: " + err.message);
+      alert("बुकिंग सेव करने में एरर: " + err.message);
     }
   };
 
-  // Product Checkout Submit
-  const handleProductCheckout = async (e) => {
+  // 6. Product Order Submission
+  const handleConfirmProductOrder = async (e) => {
     e.preventDefault();
-    if (!cart.length) return alert("कार्ट खाली है!");
+    if (!user) {
+      setAuthModal(true);
+      return;
+    }
+    if (!cart.length) return alert("आपकी कार्ट खाली है!");
     const form = e.target;
     const orderNumber = "OD-" + Math.floor(100000 + Math.random() * 900000);
 
     const orderData = {
       orderNumber,
-      customerPhone: user?.phone || "9829012345",
-      customerName: user?.name || "ग्राहक",
+      customerPhone: user.phone,
+      customerName: user.name,
       items: cart,
-      address: { line1: form.addressLine.value, city: form.city.value, pincode: form.pincode.value },
-      finalAmount: cartSubtotal,
-      paymentMode: form.paymentMode.value,
+      address: {
+        line: form.addressLine.value,
+        city: form.city.value,
+        pincode: form.pincode.value
+      },
+      subtotal: cartSubtotal,
+      deliveryCharge: cartDeliveryFee,
+      finalAmount: cartFinalTotal,
+      paymentMode: form.paymentMode.value, // 'cod' | 'online_upi'
       orderStatus: 'Placed',
+      paymentStatus: form.paymentMode.value === 'online_upi' ? 'pending_verification' : 'unpaid',
       createdAt: Date.now()
     };
 
@@ -318,42 +524,55 @@ export default function App() {
       setCart([]);
       setCheckoutModal(false);
       setActiveTab('orders');
-      alert(`🎉 आर्डर सफल! आर्डर नंबर: #${orderNumber}`);
+      alert(`🎉 ऑर्डर सफलतापूर्वक दर्ज हुआ! ऑर्डर क्रमांक: #${orderNumber}`);
+    } catch (err) {
+      alert("ऑर्डर सबमिट एरर: " + err.message);
+    }
+  };
+
+  // 7. Rating & Review Submission
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewModal) return;
+    try {
+      await updateDoc(doc(db, "bookings", reviewModal.docId), {
+        rating: ratingVal,
+        review: reviewText,
+        complaint: complaintText || null,
+        complaintStatus: complaintText ? "Pending" : null
+      });
+      alert("आपकी रेटिंग और प्रतिक्रिया दर्ज कर ली गई है। धन्यवाद!");
+      setReviewModal(null);
+      setReviewText('');
+      setComplaintText('');
     } catch (err) {
       alert("एरर: " + err.message);
     }
   };
 
-  // Categories Grid Definition matching UI Screen 1 & 2
-  const productCategoriesList = [
-    { id: 'fans', name: 'Fans', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120' },
-    { id: 'lights', name: 'Lights', img: 'https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=120' },
-    { id: 'switches', name: 'Switches', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=120' },
-    { id: 'wires', name: 'Wires', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=120' },
-    { id: 'mcb', name: 'MCB', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=120' },
-    { id: 'inverters', name: 'Inverter', img: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=120' },
-    { id: 'battery', name: 'Battery', img: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=120' },
-    { id: 'more', name: 'More', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=120' },
+  // Categories Metadata matching Visual Reference Image
+  const categoryTiles = [
+    { id: 'fans', name: 'Fans', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160' },
+    { id: 'lights', name: 'Lights', img: 'https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=160' },
+    { id: 'switches', name: 'Switches', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=160' },
+    { id: 'wires', name: 'Wires', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160' },
+    { id: 'switchgear', name: 'MCB', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=160' },
+    { id: 'inverters', name: 'Inverter', img: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=160' },
+    { id: 'battery', name: 'Battery', img: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=160' },
+    { id: 'all', name: 'More', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=160' }
   ];
 
-  const serviceCategoriesList = [
-    { id: 'fan_repair', name: 'Fan Repair', img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=120' },
-    { id: 'wiring_repair', name: 'Wiring Repair', img: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=120' },
-    { id: 'mcb_repair', name: 'MCB Repair', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=120' },
-    { id: 'switch_repair', name: 'Switch Repair', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=120' },
-    { id: 'inverter_install', name: 'Inverter Installation', img: 'https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=120' },
-    { id: 'emergency', name: 'Emergency Service', img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=120', isEmergency: true },
-  ];
-
-  // 1. SPLASH SCREEN
+  // ==========================================================================
+  // SPLASH SCREEN
+  // ==========================================================================
   if (showSplash) {
     return (
-      <div className="min-h-screen bg-[#0A1128] flex flex-col items-center justify-center p-6 text-white text-center font-sans">
+      <div className="min-h-screen bg-[#0A1128] flex flex-col items-center justify-center p-6 text-white text-center font-sans max-w-md mx-auto">
         <div className="bg-[#FF9900] p-6 rounded-3xl shadow-2xl animate-bounce mb-5 border-4 border-amber-300">
           <Zap className="w-16 h-16 text-[#0A1128] fill-[#0A1128]" />
         </div>
         <h1 className="text-3xl font-black text-white tracking-tight">Electrical Hub</h1>
-        <p className="text-[#FF9900] font-bold text-sm mt-1">विद्युत सेवा हब</p>
+        <p className="text-[#FF9900] font-bold text-sm mt-1">विद्युत सेवा हब • Official App</p>
       </div>
     );
   }
@@ -361,14 +580,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 font-sans max-w-md mx-auto relative shadow-2xl overflow-hidden">
       
-      {/* ============================================================== */}
-      {/* 1. TOP HEADER (EXACTLY MATCHING SCREENSHOT 1)                  */}
-      {/* ============================================================== */}
-      <header className="bg-[#0B1528] text-white pt-3 pb-4 px-4 sticky top-0 z-30 shadow-md">
+      {/* ==================================================================== */}
+      {/* 1. TOP HEADER (EXACTLY MATCHING BRAND IDENTITY)                     */}
+      {/* ==================================================================== */}
+      <header className="bg-[#0B1528] text-white pt-3 pb-3.5 px-4 sticky top-0 z-30 shadow-md">
         
-        {/* Top Brand & Icons Bar */}
-        <div className="flex justify-between items-center mb-2.5">
-          {/* Logo with Shield + Lightning */}
+        {/* Brand Bar */}
+        <div className="flex justify-between items-center mb-2">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-[#FF9900] rounded-2xl flex items-center justify-center shadow-lg border border-amber-200">
               <Zap className="w-6 h-6 text-[#0B1528] fill-[#0B1528]" />
@@ -379,38 +597,50 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Action Icons: Notification Bell + Cart */}
-          <div className="flex items-center gap-3">
-            <button className="relative p-1 text-slate-200 hover:text-white">
+          <div className="flex items-center gap-2.5">
+            {/* Notification Bell */}
+            <button 
+              onClick={() => setNotificationModal(true)} 
+              className="relative p-1.5 text-slate-200 hover:text-white rounded-xl active:bg-white/10"
+            >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                3
-              </span>
+              {notifications.filter(n => n.unread).length > 0 && (
+                <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
+                  {notifications.filter(n => n.unread).length}
+                </span>
+              )}
             </button>
 
-            <button onClick={() => setActiveTab('cart')} className="relative p-1 text-slate-200 hover:text-white">
+            {/* Cart Icon */}
+            <button 
+              onClick={() => setActiveTab('cart')} 
+              className="relative p-1.5 text-slate-200 hover:text-white rounded-xl active:bg-white/10"
+            >
               <ShoppingCart className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                {cart.length || 2}
-              </span>
+              {cart.length > 0 && (
+                <span className="absolute top-0.5 right-0.5 bg-[#FF9900] text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
+                  {cart.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Location Picker Row */}
+        {/* Location Picker */}
         <div 
           onClick={() => {
-            const loc = prompt("अपना शहर / राज्य दर्ज करें:", deliveryLocation);
+            const loc = prompt("अपना शहर या पिनकोड दर्ज करें:", deliveryLocation);
             if (loc) setDeliveryLocation(loc);
           }}
-          className="flex items-center gap-1.5 text-xs text-slate-300 mb-3 cursor-pointer"
+          className="flex items-center gap-1 text-xs text-slate-300 mb-2.5 cursor-pointer w-fit"
         >
           <MapPin className="w-3.5 h-3.5 text-[#FF9900] flex-shrink-0" />
-          <span className="font-semibold text-white">{deliveryLocation}</span>
+          <span className="font-bold text-white">{deliveryLocation}</span>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] text-emerald-400 font-bold ml-1">● 45 मिनट में डिलीवरी</span>
         </div>
 
-        {/* Global Pill Search Bar */}
+        {/* Global Search Bar */}
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3" />
           <input 
@@ -418,51 +648,43 @@ export default function App() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => { if (activeTab === 'home') setActiveTab('store'); }}
-            placeholder="Search Products & Services..."
-            className="w-full pl-11 pr-4 py-2.5 bg-white text-slate-900 rounded-full text-xs font-medium shadow-inner focus:outline-none focus:ring-2 focus:ring-[#FF9900]"
+            placeholder="सर्च करें: पंखा रिपेयर, एलईडी बल्ब, 2.5mm वायर..."
+            className="w-full pl-11 pr-4 py-2.5 bg-white text-slate-900 rounded-full text-xs font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-[#FF9900]"
           />
         </div>
       </header>
 
-      {/* ============================================================== */}
-      {/* SCREEN 1: HOME SCREEN (EXACTLY MATCHING LEFT SCREEN)          */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 2. TAB: HOME SCREEN (EXACTLY MATCHING LEFT SCREEN)                  */}
+      {/* ==================================================================== */}
       {activeTab === 'home' && (
         <main className="p-3.5 space-y-4">
           
-          {/* 1. Hero Promotional Banner */}
+          {/* Promotional Hero Carousel Banner */}
           <div className="bg-gradient-to-r from-[#0C1B33] via-[#0F2B5C] to-[#12397B] text-white rounded-3xl p-5 relative overflow-hidden shadow-xl border border-blue-900/50">
             <div className="max-w-[65%] space-y-2 relative z-10">
-              <h2 className="text-base font-black leading-tight tracking-tight text-white">
+              <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                स्मार्ट होम सॉल्युशन
+              </span>
+              <h2 className="text-base font-black leading-tight text-white">
                 Upgrade Your Home with Smart Electrical Solutions
               </h2>
               <button 
                 onClick={() => setActiveTab('store')}
-                className="bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 rounded-full shadow-md flex items-center gap-1 mt-2 active:scale-95 transition"
+                className="bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 rounded-full shadow flex items-center gap-1 active:scale-95 transition"
               >
                 Shop Now <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-
-            {/* Banner Floating Products Image Composite */}
-            <div className="absolute right-1 -bottom-2 w-[42%] flex items-end justify-center pointer-events-none">
-              <img 
-                src="https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=300" 
-                alt="Smart Lighting" 
-                className="w-24 h-24 object-contain drop-shadow-2xl" 
-              />
-            </div>
-
-            {/* Carousel Dots */}
-            <div className="flex justify-center gap-1.5 mt-4 pt-1">
-              <div className="w-2.5 h-1.5 bg-[#FF9900] rounded-full" />
-              <div className="w-1.5 h-1.5 bg-white/40 rounded-full" />
-              <div className="w-1.5 h-1.5 bg-white/40 rounded-full" />
-            </div>
+            <img 
+              src="https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=300" 
+              alt="Promo" 
+              className="w-24 h-24 object-contain absolute right-1 -bottom-1 drop-shadow-2xl" 
+            />
           </div>
 
-          {/* 2. Shop by Category Section */}
-          <section className="space-y-2.5">
+          {/* Shop by Category Section */}
+          <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Shop by Category</h3>
               <button 
@@ -473,26 +695,25 @@ export default function App() {
               </button>
             </div>
 
-            {/* 4x2 Category Grid with Soft Grey Cards */}
             <div className="grid grid-cols-4 gap-2.5">
-              {productCategoriesList.map((c) => (
+              {categoryTiles.map((c) => (
                 <div 
                   key={c.id}
                   onClick={() => {
                     setSelectedCategory(c.id);
                     setActiveTab('store');
                   }}
-                  className="bg-white rounded-2xl p-2.5 border border-slate-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition active:scale-95"
+                  className="bg-white rounded-2xl p-2 border border-slate-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition active:scale-95"
                 >
-                  <img src={c.img} alt={c.name} className="w-11 h-11 object-contain mb-1 rounded-lg" />
+                  <img src={c.img} alt={c.name} className="w-10 h-10 object-contain mb-1 rounded-lg" />
                   <span className="text-[11px] font-bold text-slate-700 text-center">{c.name}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* 3. Popular Services Section (Horizontal Cards) */}
-          <section className="space-y-2.5">
+          {/* Popular Services Section */}
+          <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Popular Services</h3>
               <button 
@@ -507,7 +728,7 @@ export default function App() {
               {services.slice(0, 2).map((srv) => (
                 <div 
                   key={srv.docId}
-                  onClick={() => setDetailService(srv)}
+                  onClick={() => setSelectedService(srv)}
                   className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col justify-between"
                 >
                   <img src={srv.image} alt={srv.name} className="w-full h-28 object-cover" />
@@ -515,7 +736,7 @@ export default function App() {
                     <h4 className="font-black text-xs text-slate-900 truncate">{srv.name}</h4>
                     <div className="text-xs font-bold text-slate-800 mt-0.5">{srv.startingText || `₹${srv.price} onwards`}</div>
                     <div className="flex justify-between items-center mt-2 pt-1 border-t border-slate-50">
-                      <span className="text-[10px] font-bold text-amber-500">{srv.rating || "★ 4.8 (12k+)"}</span>
+                      <span className="text-[10px] font-bold text-amber-500">★ {srv.rating || "4.8"}</span>
                       <div className="w-6 h-6 rounded-full bg-[#FF9900] text-white flex items-center justify-center shadow">
                         <ChevronRight className="w-3.5 h-3.5" />
                       </div>
@@ -526,7 +747,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* 4. Emergency Electrical Assistance 24x7 Banner */}
+          {/* Emergency 24x7 Assistance Banner */}
           <div className="bg-[#FF9900] text-slate-950 rounded-2xl p-3.5 flex justify-between items-center shadow-md">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow">
@@ -538,15 +759,15 @@ export default function App() {
             </div>
 
             <a 
-              href={`tel:${ADMIN_PHONE}`}
+              href="tel:18001234567"
               className="bg-white hover:bg-slate-50 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 active:scale-95 transition"
             >
               <PhoneCall className="w-3.5 h-3.5 text-[#FF9900] fill-[#FF9900]" /> Call Now
             </a>
           </div>
 
-          {/* 5. Best Selling Products Preview */}
-          <section className="space-y-2.5 pt-1">
+          {/* Best Selling Products Section */}
+          <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Best Selling Products</h3>
               <button 
@@ -558,27 +779,34 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {products.slice(0, 2).map((p) => (
-                <div key={p.docId} className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col justify-between">
+              {products.slice(0, 4).map((p) => (
+                <div 
+                  key={p.docId} 
+                  onClick={() => setSelectedProduct(p)}
+                  className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md transition"
+                >
                   <div className="relative">
                     <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-md">
                       {p.discount || "-30%"}
                     </span>
-                    <button onClick={() => toggleWishlist(p.docId)} className="absolute right-0 top-0 text-slate-400">
-                      <Heart className={`w-4 h-4 ${wishlist.includes(p.docId) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    <button 
+                      onClick={(e) => handleToggleWishlist(p, e)} 
+                      className="absolute right-0 top-0 text-slate-400 p-1"
+                    >
+                      <Heart className={`w-4 h-4 ${wishlist.some(i => (i.docId || i.name) === (p.docId || p.name)) ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </button>
-                    <img src={p.image} alt={p.name} className="w-full h-28 object-contain my-2" />
+                    <img src={p.image} alt={p.name} className="w-full h-24 object-contain my-2" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-xs text-slate-900 truncate">{p.name}</h4>
-                    <span className="text-[10px] text-amber-500 font-bold block mt-0.5">★ {p.rating}</span>
+                    <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{p.name}</h4>
+                    <span className="text-[10px] text-amber-500 font-bold block mt-0.5">★ {p.rating} ({p.reviewsCount || '1k+'})</span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="font-black text-sm text-slate-900">₹{p.price}</span>
                       <span className="text-xs text-slate-400 line-through">₹{p.mrp}</span>
                     </div>
                     <button 
-                      onClick={() => addToCart(p)}
-                      className="w-full mt-2.5 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1 active:scale-95 transition"
+                      onClick={(e) => handleAddToCart(p, e)}
+                      className="w-full mt-2 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1 active:scale-95 transition"
                     >
                       Add to Cart
                     </button>
@@ -591,124 +819,82 @@ export default function App() {
         </main>
       )}
 
-      {/* ============================================================== */}
-      {/* SCREEN 2: CATEGORIES SCREEN (EXACTLY MATCHING MIDDLE SCREEN)   */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 3. TAB: CATEGORIES SCREEN (EXACTLY MATCHING MIDDLE SCREEN)          */}
+      {/* ==================================================================== */}
       {activeTab === 'categories' && (
         <main className="p-3.5 space-y-4">
-          
-          {/* Top Categories Navigation Header */}
           <div className="flex justify-between items-center px-1">
             <button onClick={() => setActiveTab('home')} className="p-1">
               <ArrowLeft className="w-5 h-5 text-slate-800" />
             </button>
-            <h2 className="font-black text-base text-slate-900">Categories</h2>
+            <h2 className="font-black text-base text-slate-900">कैटलॉग व श्रेणियाँ</h2>
             <button onClick={() => setActiveTab('store')} className="p-1">
               <Search className="w-5 h-5 text-slate-800" />
             </button>
           </div>
 
-          {/* Top Promotional Banner */}
-          <div className="bg-gradient-to-r from-amber-400 via-[#FF9900] to-orange-500 text-slate-950 rounded-3xl p-4.5 relative overflow-hidden shadow-lg">
-            <div className="max-w-[65%] space-y-1">
-              <h3 className="font-black text-base leading-tight">Electrical Products at Best Prices</h3>
+          {/* Banner */}
+          <div className="bg-gradient-to-r from-amber-400 via-[#FF9900] to-orange-500 text-slate-950 rounded-3xl p-4 shadow-lg flex justify-between items-center">
+            <div className="space-y-1">
+              <h3 className="font-black text-sm">Electrical Products at Best Prices</h3>
               <p className="text-[11px] font-bold text-slate-800">Quality • Savings • Trust</p>
               <button 
                 onClick={() => setActiveTab('store')}
-                className="bg-[#0B1528] text-white font-black text-xs px-4 py-2 rounded-full shadow mt-2 flex items-center gap-1"
+                className="bg-[#0B1528] text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow mt-2"
               >
-                Shop Now <ChevronRight className="w-3.5 h-3.5" />
+                Shop Now ➔
               </button>
-            </div>
-            <div className="flex justify-center gap-1 mt-3">
-              <div className="w-2.5 h-1.5 bg-slate-900 rounded-full" />
-              <div className="w-1.5 h-1.5 bg-slate-900/30 rounded-full" />
-              <div className="w-1.5 h-1.5 bg-slate-900/30 rounded-full" />
             </div>
           </div>
 
-          {/* Product Categories Grid (3 Columns) */}
-          <section className="space-y-2.5">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="font-black text-sm text-slate-900">Product Categories</h3>
-              <button onClick={() => setActiveTab('store')} className="text-xs font-bold text-blue-600 flex items-center">
-                View All <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
+          {/* Product Categories Grid */}
+          <section className="space-y-2">
+            <h3 className="font-black text-sm text-slate-900 px-1">सामान श्रेणियाँ (Product Categories)</h3>
             <div className="grid grid-cols-3 gap-2.5">
-              {productCategoriesList.map((c) => (
+              {categoryTiles.map((c) => (
                 <div 
                   key={c.id}
                   onClick={() => {
                     setSelectedCategory(c.id);
                     setActiveTab('store');
                   }}
-                  className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition active:scale-95"
+                  className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col items-center justify-center cursor-pointer active:scale-95 transition"
                 >
-                  <img src={c.img} alt={c.name} className="w-12 h-12 object-contain mb-1.5" />
+                  <img src={c.img} alt={c.name} className="w-12 h-12 object-contain mb-1" />
                   <span className="text-xs font-bold text-slate-800">{c.name}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Service Categories Grid (3 Columns) */}
-          <section className="space-y-2.5">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="font-black text-sm text-slate-900">Service Categories</h3>
-              <span className="text-xs font-bold text-blue-600 flex items-center cursor-pointer">
-                View All <ChevronRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2.5">
-              {serviceCategoriesList.map((s) => (
+          {/* Service Categories Grid */}
+          <section className="space-y-2 pt-1">
+            <h3 className="font-black text-sm text-slate-900 px-1">सर्विस श्रेणियाँ (Service Categories)</h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              {services.map((s) => (
                 <div 
-                  key={s.id}
-                  onClick={() => {
-                    const matched = services.find(x => x.category === s.id) || services[0];
-                    setDetailService(matched);
-                  }}
-                  className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition active:scale-95"
+                  key={s.docId}
+                  onClick={() => setSelectedService(s)}
+                  className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex items-center gap-2.5 cursor-pointer active:scale-95 transition"
                 >
-                  <img src={s.img} alt={s.name} className="w-12 h-12 object-contain mb-1.5 rounded-lg" />
-                  <span className="text-[11px] font-bold text-slate-800 text-center leading-tight">{s.name}</span>
+                  <img src={s.image} alt={s.name} className="w-12 h-12 rounded-xl object-cover" />
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{s.name}</h4>
+                    <span className="text-[11px] font-black text-blue-900">₹{s.price} onwards</span>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
-
-          {/* Bottom Electrician Promo Card */}
-          <div className="bg-gradient-to-r from-[#0C1B33] to-[#12397B] text-white rounded-3xl p-4 flex items-center justify-between shadow-xl">
-            <div className="space-y-1">
-              <h4 className="font-black text-sm leading-tight text-[#FF9900]">
-                Get Professional Electrician at Your Doorstep
-              </h4>
-              <button 
-                onClick={() => setDetailService(services[0])}
-                className="bg-[#FF9900] text-slate-950 font-black text-xs px-4 py-2 rounded-full shadow mt-1 flex items-center gap-1 active:scale-95 transition"
-              >
-                Book Now <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <img 
-              src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200" 
-              alt="Electrician" 
-              className="w-16 h-16 object-cover rounded-2xl border border-amber-300/40"
-            />
-          </div>
-
         </main>
       )}
 
-      {/* ============================================================== */}
-      {/* SCREEN 3: STORE & PRODUCTS (EXACTLY MATCHING RIGHT SCREEN)     */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 4. TAB: STORE & PRODUCTS LISTING (EXACTLY MATCHING RIGHT SCREEN)    */}
+      {/* ==================================================================== */}
       {activeTab === 'store' && (
         <main className="p-3.5 space-y-3.5">
-          
-          {/* Top Search & Filter Bar */}
           <div className="flex items-center gap-2">
             <button onClick={() => setActiveTab('home')} className="p-1">
               <ArrowLeft className="w-5 h-5 text-slate-800" />
@@ -719,55 +905,41 @@ export default function App() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Products..."
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-full text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#FF9900]"
+                placeholder="सर्च करें..."
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-full text-xs font-semibold focus:ring-2 focus:ring-[#FF9900]"
               />
             </div>
-            <button className="p-2 bg-white border border-slate-200 rounded-xl shadow-sm text-slate-700">
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Sort By & Filter Dropdown Controls */}
+          {/* Sort & Filter Controls */}
           <div className="flex justify-between items-center text-xs px-1">
             <div className="flex gap-2">
               <button 
                 onClick={() => setSortBy(sortBy === 'price_asc' ? 'price_desc' : 'price_asc')}
-                className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 text-slate-700 shadow-sm"
+                className="bg-white border px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"
               >
-                Sort By <ChevronDown className="w-3.5 h-3.5" />
+                Sort: {sortBy === 'price_asc' ? 'Price Low' : sortBy === 'price_desc' ? 'Price High' : 'Popular'} <ChevronDown className="w-3.5 h-3.5" />
               </button>
-              <button className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 text-slate-700 shadow-sm">
-                Filter <ChevronDown className="w-3.5 h-3.5" />
-              </button>
+              <select 
+                value={selectedCategory} 
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="bg-white border px-2 py-1.5 rounded-xl font-bold text-slate-700 shadow-sm"
+              >
+                <option value="all">सभी कैटेगरी</option>
+                <option value="fans">Fans</option>
+                <option value="lights">Lights</option>
+                <option value="switches">Switches</option>
+                <option value="wires">Wires</option>
+              </select>
             </div>
-            <div className="flex gap-1 text-slate-400">
-              <button className="p-1.5 bg-white border rounded-lg text-slate-900 shadow-sm"><Grid className="w-3.5 h-3.5" /></button>
-              <button className="p-1.5 bg-white border rounded-lg"><List className="w-3.5 h-3.5" /></button>
-            </div>
+            <span className="text-[11px] font-bold text-slate-500">{products.length} प्रोडक्ट्स</span>
           </div>
 
-          {/* Up to 50% OFF Top Banner */}
-          <div className="bg-gradient-to-r from-[#0C1B33] via-[#0F2B5C] to-[#12397B] text-white rounded-3xl p-4 relative overflow-hidden shadow-md">
-            <div className="max-w-[65%] space-y-1">
-              <span className="text-[#FF9900] font-black text-sm block">Up to 50% OFF</span>
-              <p className="text-xs font-bold text-white leading-tight">on Electrical Products</p>
-              <button className="bg-[#FF9900] text-slate-950 font-black text-[11px] px-3.5 py-1.5 rounded-full shadow mt-2 flex items-center gap-1">
-                Shop Now <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-            <img 
-              src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200" 
-              alt="Promo" 
-              className="w-20 h-20 object-contain absolute right-2 -bottom-1"
-            />
-          </div>
-
-          {/* 2-Column Product Grid exactly matching Screen 3 */}
+          {/* 2-Column Product Grid */}
           <div className="grid grid-cols-2 gap-3">
             {products
               .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
-              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand?.toLowerCase().includes(searchQuery.toLowerCase()))
               .sort((a, b) => {
                 if (sortBy === 'price_asc') return a.price - b.price;
                 if (sortBy === 'price_desc') return b.price - a.price;
@@ -776,44 +948,34 @@ export default function App() {
               .map((p) => (
                 <div 
                   key={p.docId}
-                  className="bg-white rounded-3xl p-3 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition"
+                  onClick={() => setSelectedProduct(p)}
+                  className="bg-white rounded-3xl p-3 border border-slate-100 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md transition"
                 >
                   <div className="relative">
-                    {/* Discount badge */}
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
-                      p.discount?.includes('40') || p.discount?.includes('35') 
-                        ? 'bg-emerald-600 text-white' 
-                        : 'bg-[#FF9900] text-slate-950'
-                    }`}>
+                    <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md">
                       {p.discount || "-30%"}
                     </span>
-
-                    {/* Wishlist Heart */}
-                    <button onClick={() => toggleWishlist(p.docId)} className="absolute right-0 top-0 text-slate-400 p-0.5">
-                      <Heart className={`w-4 h-4 ${wishlist.includes(p.docId) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    <button 
+                      onClick={(e) => handleToggleWishlist(p, e)} 
+                      className="absolute right-0 top-0 text-slate-400 p-1"
+                    >
+                      <Heart className={`w-4 h-4 ${wishlist.some(i => (i.docId || i.name) === (p.docId || p.name)) ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </button>
-
-                    {/* Product Image */}
-                    <div onClick={() => setDetailProduct(p)} className="cursor-pointer my-2 flex items-center justify-center">
-                      <img src={p.image} alt={p.name} className="w-full h-28 object-contain" />
-                    </div>
+                    <img src={p.image} alt={p.name} className="w-full h-28 object-contain my-2" />
                   </div>
 
                   <div>
-                    <h4 onClick={() => setDetailProduct(p)} className="font-bold text-xs text-slate-900 line-clamp-2 cursor-pointer">
-                      {p.name}
-                    </h4>
-                    <span className="text-[10px] text-amber-500 font-black block mt-0.5">
-                      ★ {p.rating || "4.6 (5.2k)"}
-                    </span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">{p.brand}</span>
+                    <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{p.name}</h4>
+                    <span className="text-[10px] text-amber-500 font-black block mt-0.5">★ {p.rating}</span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="font-black text-sm text-slate-900">₹{p.price}</span>
                       <span className="text-xs text-slate-400 line-through">₹{p.mrp}</span>
                     </div>
 
                     <button 
-                      onClick={() => addToCart(p)}
-                      className="w-full mt-2 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1 active:scale-95 transition"
+                      onClick={(e) => handleAddToCart(p, e)}
+                      className="w-full mt-2.5 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1 active:scale-95 transition"
                     >
                       Add to Cart
                     </button>
@@ -821,294 +983,383 @@ export default function App() {
                 </div>
               ))}
           </div>
-
         </main>
       )}
 
-      {/* ============================================================== */}
-      {/* SCREEN 4: SHOPPING CART & CHECKOUT                             */}
-      {/* ============================================================== */}
-      {activeTab === 'cart' && (
-        <main className="p-4 space-y-4">
-          <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-[#FF9900]" /> शॉपिंग कार्ट ({cart.length})
-          </h2>
-
-          {cart.length === 0 ? (
-            <div className="bg-white p-8 rounded-3xl text-center border space-y-3">
-              <ShoppingCart className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-xs text-slate-500 font-bold">आपकी कार्ट अभी खाली है!</p>
-              <button onClick={() => setActiveTab('store')} className="bg-[#0B1528] text-[#FF9900] font-bold px-5 py-2.5 rounded-xl text-xs">
-                सामान खरीदें
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map((item, idx) => (
-                <div key={idx} className="bg-white p-3.5 rounded-3xl border flex justify-between items-center text-xs">
-                  <img src={item.image} alt={item.name} className="w-14 h-14 object-contain rounded-xl" />
-                  <div className="flex-1 px-3">
-                    <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
-                    <span className="text-slate-900 font-black">₹{item.price * item.quantity}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity - 1 } : x).filter(x => x.quantity > 0);
-                        setCart(updated);
-                      }} 
-                      className="w-6 h-6 bg-slate-100 rounded-lg font-bold flex items-center justify-center"
-                    >-</button>
-                    <span className="font-bold">{item.quantity}</span>
-                    <button 
-                      onClick={() => {
-                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x);
-                        setCart(updated);
-                      }} 
-                      className="w-6 h-6 bg-slate-100 rounded-lg font-bold flex items-center justify-center"
-                    >+</button>
-                  </div>
-                </div>
-              ))}
-
-              {/* Bill Details */}
-              <div className="bg-white p-4 rounded-3xl border space-y-2 text-xs">
-                <div className="flex justify-between font-bold text-slate-700">
-                  <span>कुल राशि (Subtotal):</span>
-                  <span className="text-slate-900">₹{cartSubtotal}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-700">
-                  <span>डिलीवरी:</span>
-                  <span className="text-emerald-600">फ्री</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between font-black text-sm text-slate-900">
-                  <span>फाइनल देय राशि:</span>
-                  <span className="text-emerald-700 text-base">₹{cartSubtotal}</span>
-                </div>
-                <button 
-                  onClick={() => setCheckoutModal(true)}
-                  className="w-full mt-2 bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg active:scale-95 transition"
-                >
-                  चेकआउट करें (Proceed to Buy)
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-      )}
-
-      {/* ============================================================== */}
-      {/* SCREEN 5: ORDERS & LIVE TRACKING                               */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 5. TAB: ORDERS & BOOKINGS (WITH AMAZON PROGRESS TRACKER)            */}
+      {/* ==================================================================== */}
       {activeTab === 'orders' && (
-        <main className="p-4 space-y-3.5">
-          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व लाइव ट्रैकिंग</h2>
+        <main className="p-4 space-y-4">
+          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व बुकिंग्स</h2>
 
-          {bookings.map((b) => (
-            <div key={b.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
-                  <h4 className="font-black text-sm text-slate-900 mt-0.5">{b.serviceName}</h4>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
-                    {b.createdAt ? new Date(b.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+          {/* Service Bookings Feed */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-xs text-slate-500 uppercase">इलेक्ट्रिकल सर्विस बुकिंग्स ({bookings.length})</h3>
+            
+            {bookings.length === 0 ? (
+              <p className="text-xs text-slate-400 bg-white p-4 rounded-2xl border text-center">अभी कोई बुकिंग दर्ज नहीं है।</p>
+            ) : (
+              bookings.map((b) => (
+                <div key={b.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
+                      <h4 className="font-black text-sm text-slate-900 mt-0.5">{b.serviceName}</h4>
+                      <p className="text-[11px] text-slate-500">स्लॉट: {b.slot} | तारीख: {b.scheduledDate || 'आज'}</p>
+                    </div>
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${
+                      b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {b.status}
+                    </span>
+                  </div>
+
+                  {/* Amazon Step Progress Bar */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-blue-900 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> स्वीकृत</span>
+                      <span className={b.status === 'On The Way' || b.status === 'In Progress' || b.status === 'Completed' ? 'text-purple-700' : 'text-slate-300'}>
+                        रास्ते में
+                      </span>
+                      <span className={b.status === 'Completed' ? 'text-emerald-600' : 'text-slate-300'}>
+                        पूरा हुआ
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-500 ${
+                        b.status === 'Confirmed' ? 'w-1/3 bg-blue-600' :
+                        b.status === 'On The Way' ? 'w-2/3 bg-purple-600' :
+                        b.status === 'Completed' ? 'w-full bg-emerald-600' : 'w-1/4 bg-yellow-400'
+                      }`} />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setActiveBookingDetail(b)} 
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-900" /> फोटो प्रूफ व रसीद
+                    </button>
+                    {b.status === 'Completed' && !b.rating && (
+                      <button 
+                        onClick={() => setReviewModal(b)} 
+                        className="flex-1 bg-[#FF9900] text-slate-950 font-black py-2 rounded-xl text-xs flex items-center justify-center gap-1 shadow"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-slate-950" /> रेटिंग दें
+                      </button>
+                    )}
                   </div>
                 </div>
-                <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${
-                  b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {b.status}
-                </span>
-              </div>
+              ))
+            )}
+          </div>
 
-              {/* Progress Timeline */}
-              <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="text-blue-900">स्वीकृत</span>
-                  <span className={b.status === 'On The Way' || b.status === 'Completed' ? 'text-purple-700' : 'text-slate-300'}>रास्ते में</span>
-                  <span className={b.status === 'Completed' ? 'text-emerald-600' : 'text-slate-300'}>पूरा हुआ</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${
-                    b.status === 'Confirmed' ? 'w-1/3 bg-blue-600' :
-                    b.status === 'On The Way' ? 'w-2/3 bg-purple-600' : 'w-full bg-emerald-600'
-                  }`} />
+          {/* Product Orders Feed */}
+          <div className="space-y-3 pt-2">
+            <h3 className="font-bold text-xs text-slate-500 uppercase">सामान ऑर्डर्स ({orders.length})</h3>
+            {orders.map((o) => (
+              <div key={o.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-2 text-xs">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-bold text-blue-900">#{o.orderNumber}</span>
+                    <h4 className="font-black text-sm text-slate-900 mt-0.5">{o.items?.length || 1} उत्पाद • कुल: ₹{o.finalAmount}</h4>
+                    <p className="text-slate-500">मोड: {o.paymentMode === 'cod' ? 'कैश ऑन डिलीवरी' : 'ऑनलाइन UPI'}</p>
+                  </div>
+                  <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-black text-[10px]">
+                    {o.orderStatus}
+                  </span>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setCustDetailBooking(b)} 
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1"
-                >
-                  <FileText className="w-3.5 h-3.5 text-blue-900" /> फोटो व रसीद
-                </button>
-                {b.isBilled && b.paymentStatus !== 'paid' && (
-                  <button 
-                    onClick={() => setCustomerPayBooking(b)} 
-                    className="flex-1 bg-emerald-600 text-white font-black py-2 rounded-xl text-xs shadow flex items-center justify-center gap-1"
-                  >
-                    <QrCode className="w-3.5 h-3.5" /> बिल भरें (₹{b.finalTotal})
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </main>
       )}
 
-      {/* ============================================================== */}
-      {/* SCREEN 6: ACCOUNT SCREEN                                       */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 6. TAB: CUSTOMER ACCOUNT                                            */}
+      {/* ==================================================================== */}
       {activeTab === 'account' && (
         <main className="p-4 space-y-4">
-          <div className="bg-[#0B1528] text-white p-5 rounded-3xl shadow-lg flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#FF9900] text-slate-950 font-black text-xl flex items-center justify-center shadow">
-              {user?.name?.[0] || 'U'}
+          <div className="bg-[#0B1528] text-white p-5 rounded-3xl shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#FF9900] text-slate-950 font-black text-xl flex items-center justify-center shadow">
+                {user ? user.name[0] : 'G'}
+              </div>
+              <div>
+                <h3 className="font-black text-base">{user ? user.name : "अतिथि ग्राहक (Guest)"}</h3>
+                <p className="text-xs text-slate-300">📞 +91 {user ? user.phone : "रजिस्टर करें"}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-black text-base">{user?.name}</h3>
-              <p className="text-xs text-slate-300">📞 +91 {user?.phone}</p>
-            </div>
+            {user ? (
+              <button onClick={handleLogout} className="text-slate-400 hover:text-white p-2">
+                <LogOut className="w-5 h-5" />
+              </button>
+            ) : (
+              <button onClick={() => setAuthModal(true)} className="bg-[#FF9900] text-slate-950 font-black px-3.5 py-1.5 rounded-xl text-xs">
+                लॉगिन
+              </button>
+            )}
           </div>
 
           <div className="bg-white rounded-3xl border divide-y text-xs font-bold text-slate-700 shadow-sm">
             <div onClick={() => setActiveTab('orders')} className="p-4 flex justify-between items-center cursor-pointer">
-              <span>मेरे आर्डर व बुकिंग्स</span>
+              <span className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-blue-900" /> मेरे आर्डर्स व बुकिंग्स</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
             <div onClick={() => setActiveTab('cart')} className="p-4 flex justify-between items-center cursor-pointer">
-              <span>शॉपिंग कार्ट</span>
+              <span className="flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-amber-600" /> शॉपिंग कार्ट ({cart.length})</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
-            <div onClick={() => alert("हेल्पलाइन: 6367626276 पर संपर्क करें")} className="p-4 flex justify-between items-center cursor-pointer">
-              <span>24x7 ग्राहक सहायता व शिकायत</span>
+            <div onClick={() => alert("कूपन कोड उपलब्ध: WELCOME50 (₹50 छूट) व ELECTRICAL10 (10% छूट)")} className="p-4 flex justify-between items-center cursor-pointer">
+              <span className="flex items-center gap-2"><Tag className="w-4 h-4 text-emerald-600" /> कूपन व ऑफर्स</span>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </div>
+            <div onClick={() => alert("कस्टमर केयर हेल्पलाइन: 1800-123-4567 पर कॉल करें")} className="p-4 flex justify-between items-center cursor-pointer">
+              <span className="flex items-center gap-2"><HelpCircle className="w-4 h-4 text-purple-600" /> 24×7 सहायता व शिकायत</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
           </div>
         </main>
       )}
 
-      {/* ============================================================== */}
-      {/* MODALS: PRODUCT DETAILS, SERVICE BOOKING, CHECKOUT             */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 7. ALL MODALS (PRODUCT DETAILS, SERVICE DETAILS, CHECKOUT)           */}
+      {/* ==================================================================== */}
 
-      {/* Modal 1: Product Details */}
-      {detailProduct && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
-            <button onClick={() => setDetailProduct(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <img src={detailProduct.image} alt={detailProduct.name} className="w-full h-36 object-contain" />
-            <h3 className="font-black text-sm text-slate-900">{detailProduct.name}</h3>
+      {/* MODAL 1: PRODUCT DETAILS PAGE */}
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
+            <button onClick={() => setSelectedProduct(null)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">{selectedProduct.brand}</span>
+            <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-40 object-contain my-2" />
+            <h3 className="font-black text-base text-slate-900 leading-tight">{selectedProduct.name}</h3>
+            
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-black text-slate-900">₹{detailProduct.price}</span>
-              <span className="text-xs text-slate-400 line-through">₹{detailProduct.mrp}</span>
-              <span className="text-emerald-600 font-bold">{detailProduct.discount} OFF</span>
+              <span className="text-2xl font-black text-slate-900">₹{selectedProduct.price}</span>
+              <span className="text-xs text-slate-400 line-through">₹{selectedProduct.mrp}</span>
+              <span className="text-emerald-600 font-bold">{selectedProduct.discount || "-30%"} छूट</span>
             </div>
-            <p className="text-slate-600 bg-slate-50 p-2.5 rounded-xl border">{detailProduct.description}</p>
+
+            <p className="text-slate-600 bg-slate-50 p-3 rounded-2xl border">{selectedProduct.description}</p>
+
+            {selectedProduct.specs && (
+              <div className="bg-slate-50 p-3 rounded-2xl border space-y-1">
+                <span className="font-bold text-slate-800 block">स्पेसिफिकेशन्स:</span>
+                {Object.entries(selectedProduct.specs).map(([k, v]) => (
+                  <div key={k} className="flex justify-between text-slate-600"><span>{k}:</span><strong>{v}</strong></div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button 
+                onClick={() => { handleAddToCart(selectedProduct); setSelectedProduct(null); }}
+                className="flex-1 bg-[#0B1528] text-white font-black py-3 rounded-2xl shadow flex items-center justify-center gap-1.5"
+              >
+                <ShoppingCart className="w-4 h-4 text-[#FF9900]" /> कार्ट में डालें
+              </button>
+              <button 
+                onClick={() => { handleAddToCart(selectedProduct); setSelectedProduct(null); setActiveTab('cart'); }}
+                className="flex-1 bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow active:scale-95 transition"
+              >
+                अभी खरीदें (Buy Now)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: SERVICE DETAILS PAGE */}
+      {selectedService && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
+            <button onClick={() => setSelectedService(null)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <img src={selectedService.image} alt={selectedService.name} className="w-full h-36 object-cover rounded-2xl" />
+            <h3 className="font-black text-base text-slate-900 leading-tight">{selectedService.name}</h3>
+            
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-black text-blue-900">₹{selectedService.price}</span>
+              <span className="text-xs text-slate-400">जांच शुल्क: ₹{selectedService.visiting || 99}</span>
+            </div>
+
+            <p className="text-slate-600 bg-slate-50 p-3 rounded-2xl border">{selectedService.description}</p>
+
+            <div className="space-y-1.5">
+              <span className="font-bold text-slate-800 block">इस सेवा में शामिल है:</span>
+              {(selectedService.includes || ["30 दिन की गारंटी", "सुरक्षा टेस्ट", "ओरिजिनल पार्ट्स"]).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-slate-700">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
             <button 
-              onClick={() => { addToCart(detailProduct); setDetailProduct(null); }}
-              className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg"
+              onClick={() => {
+                setBookingService(selectedService);
+                setSelectedService(null);
+              }}
+              className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg flex items-center justify-center gap-1.5"
             >
-              Add to Cart
+              सर्विस बुक करें (Book Now) <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Modal 2: Service Details */}
-      {detailService && (
+      {/* MODAL 3: SERVICE BOOKING FORM */}
+      {bookingService && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
-            <button onClick={() => setDetailService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <img src={detailService.image} alt={detailService.name} className="w-full h-36 object-cover rounded-2xl" />
-            <h3 className="font-black text-sm text-slate-900">{detailService.name}</h3>
-            <div className="text-sm font-black text-blue-900">{detailService.startingText || `₹${detailService.price} onwards`}</div>
-            <p className="text-slate-600 bg-slate-50 p-2.5 rounded-xl border">{detailService.description}</p>
-            <button 
-              onClick={() => { setBookingStepService(detailService); setDetailService(null); }}
-              className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg flex items-center justify-center gap-1"
-            >
-              तारीख व स्लॉट चुनें <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+          <form onSubmit={handleConfirmServiceBooking} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
+            <button type="button" onClick={() => setBookingService(null)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-sm text-slate-900">सर्विस बुकिंग फॉर्म</h3>
+            <div className="bg-blue-50 p-2.5 rounded-xl border border-blue-200 text-blue-950 font-bold">
+              {bookingService.name} • शुरुआती चार्ज: ₹{bookingService.price}
+            </div>
 
-      {/* Modal 3: Booking Form */}
-      {bookingStepService && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleServiceBooking} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
-            <button type="button" onClick={() => setBookingStepService(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <h3 className="font-black text-sm text-slate-900">सर्विस स्लॉट व पता चुनें</h3>
-            <p className="font-bold text-blue-900">{bookingStepService.name}</p>
-            <input required name="serviceDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
-            <select name="slot" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50">
-              <option>सुबह (9:00 AM - 1:00 PM)</option>
-              <option>दोपहर (1:00 PM - 5:00 PM)</option>
-              <option>शाम (5:00 PM - 8:00 PM)</option>
-            </select>
-            <textarea required name="address" rows={2} placeholder="मकान नं., फ्लैट, गली, इलाका, जयपुर" className="w-full p-2 border rounded-xl bg-slate-50"></textarea>
+            <div>
+              <label className="block font-bold mb-1">सर्विस तारीख (Select Date)</label>
+              <input required name="serviceDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">समय स्लॉट (Select Slot)</label>
+              <select name="slot" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50">
+                <option>सुबह (9:00 AM - 1:00 PM)</option>
+                <option>दोपहर (1:00 PM - 5:00 PM)</option>
+                <option>शाम (5:00 PM - 8:00 PM)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">पूरा पता व लैंडमार्क</label>
+              <textarea required name="customAddress" rows={2} defaultValue={savedAddresses[selectedAddressIndex]?.line} placeholder="मकान नं., फ्लैट, गली, इलाका, जयपुर" className="w-full p-2 border rounded-xl bg-slate-50 font-semibold"></textarea>
+            </div>
+
             <button type="submit" className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg">
-              कन्फर्म बुकिंग
+              बुकिंग कन्फर्म करें (Confirm Booking)
             </button>
           </form>
         </div>
       )}
 
-      {/* Modal 4: Checkout Form */}
+      {/* MODAL 4: CHECKOUT FORM */}
       {checkoutModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleProductCheckout} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
-            <button type="button" onClick={() => setCheckoutModal(false)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <h3 className="font-black text-sm text-slate-900">डिलीवरी चेकआउट फॉर्म</h3>
-            <input required name="addressLine" placeholder="मकान नं., फ्लैट, गली" className="w-full p-2.5 border rounded-xl bg-slate-50" />
+          <form onSubmit={handleConfirmProductOrder} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
+            <button type="button" onClick={() => setCheckoutModal(false)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-sm text-slate-900">डिलीवरी चेकआउट</h3>
+            <div className="bg-slate-50 p-2.5 rounded-xl border text-slate-700 flex justify-between font-bold">
+              <span>कुल देय राशि:</span>
+              <span className="text-emerald-700 text-sm">₹{cartFinalTotal}</span>
+            </div>
+
+            <input required name="addressLine" placeholder="मकान नं., फ्लैट, गली" defaultValue={savedAddresses[selectedAddressIndex]?.line} className="w-full p-2.5 border rounded-xl bg-slate-50" />
             <div className="grid grid-cols-2 gap-2">
               <input required name="city" defaultValue="जयपुर" className="p-2 border rounded-xl bg-slate-50 font-bold" />
               <input required name="pincode" defaultValue="302020" className="p-2 border rounded-xl bg-slate-50 font-bold" />
             </div>
-            <select name="paymentMode" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50">
-              <option value="cod">कैश ऑन डिलीवरी (Cash on Delivery)</option>
-              <option value="online_upi">ऑनलाइन UPI (PhonePe/GPay)</option>
-            </select>
+
+            <div>
+              <label className="block font-bold mb-1">भुगतान का माध्यम (Payment Mode)</label>
+              <select name="paymentMode" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50">
+                <option value="cod">कैश ऑन डिलीवरी (Cash on Delivery)</option>
+                <option value="online_upi">ऑनलाइन UPI (PhonePe / GPay)</option>
+              </select>
+            </div>
+
             <button type="submit" className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg">
-              ऑर्डर कन्फर्म करें (₹{cartSubtotal})
+              ऑर्डर कन्फर्म करें (Place Order)
             </button>
           </form>
         </div>
       )}
 
-      {/* Modal 5: Photo Proof & Receipt View */}
-      {custDetailBooking && (
+      {/* MODAL 5: NOTIFICATIONS */}
+      {notificationModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
+            <button onClick={() => setNotificationModal(false)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+              <Bell className="w-4 h-4 text-[#FF9900]" /> सूचनाएं (Notifications)
+            </h3>
+            <div className="divide-y max-h-60 overflow-y-auto">
+              {notifications.map((n) => (
+                <div key={n.id} className="py-2.5 space-y-0.5">
+                  <strong className="text-slate-900 block">{n.title}</strong>
+                  <p className="text-slate-500">{n.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: LOGIN / REGISTRATION MODAL */}
+      {authModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative text-xs">
+            <button onClick={() => setAuthModal(false)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-base text-center text-slate-900">
+              {authMode === 'login' ? 'लॉगिन करें' : 'नया खाता बनाएं'}
+            </h3>
+
+            <div className="flex border-b border-slate-200">
+              <button onClick={() => setAuthMode('login')} className={`flex-1 py-2 font-bold ${authMode === 'login' ? 'border-b-2 border-[#FF9900] text-slate-900' : 'text-slate-400'}`}>लॉगिन</button>
+              <button onClick={() => setAuthMode('register')} className={`flex-1 py-2 font-bold ${authMode === 'register' ? 'border-b-2 border-[#FF9900] text-slate-900' : 'text-slate-400'}`}>रजिस्टर</button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-3">
+              {authMode === 'register' && (
+                <input required type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="पूरा नाम" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+              )}
+              <input required type="tel" maxLength={10} value={authPhone} onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))} placeholder="10 अंकों का फोन नंबर" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+              <input required type="password" maxLength={4} value={authPin} onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, ''))} placeholder="4 अंकों का पिन" className="w-full p-2.5 border rounded-xl text-center tracking-widest font-black text-base bg-slate-50" />
+              {authMode === 'register' && (
+                <input required type="password" maxLength={4} value={authConfirmPin} onChange={(e) => setAuthConfirmPin(e.target.value.replace(/\D/g, ''))} placeholder="पिन कन्फर्म करें" className="w-full p-2 border rounded-xl text-center font-black bg-slate-50" />
+              )}
+              <button disabled={authLoading} type="submit" className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow">
+                {authLoading ? "जांच जारी..." : authMode === 'login' ? "लॉगिन करें" : "खाता बनाएं"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: PHOTO PROOF & DIGITAL RECEIPT */}
+      {activeBookingDetail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative my-8">
-            <button onClick={() => setCustDetailBooking(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <h3 className="font-black text-sm text-slate-900">#{custDetailBooking.bookingId} - {custDetailBooking.serviceName}</h3>
+            <button onClick={() => setActiveBookingDetail(null)} className="absolute right-4 top-4 text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-base text-slate-900">#{activeBookingDetail.bookingId} - {activeBookingDetail.serviceName}</h3>
             
-            {(custDetailBooking.beforePhoto || custDetailBooking.afterPhoto) ? (
+            {(activeBookingDetail.beforePhoto || activeBookingDetail.afterPhoto) ? (
               <div className="grid grid-cols-2 gap-2">
-                {custDetailBooking.beforePhoto && (
+                {activeBookingDetail.beforePhoto && (
                   <div>
                     <span className="text-[9px] text-slate-400 block font-bold">काम से पहले:</span>
-                    <img src={custDetailBooking.beforePhoto} alt="Before" className="h-24 w-full object-cover rounded-xl mt-0.5 border" />
+                    <img src={activeBookingDetail.beforePhoto} alt="Before" className="h-24 w-full object-cover rounded-xl mt-0.5 border" />
                   </div>
                 )}
-                {custDetailBooking.afterPhoto && (
+                {activeBookingDetail.afterPhoto && (
                   <div>
                     <span className="text-[9px] text-emerald-600 block font-bold">काम के बाद:</span>
-                    <img src={custDetailBooking.afterPhoto} alt="After" className="h-24 w-full object-cover rounded-xl mt-0.5 border" />
+                    <img src={activeBookingDetail.afterPhoto} alt="After" className="h-24 w-full object-cover rounded-xl mt-0.5 border" />
                   </div>
                 )}
               </div>
             ) : <p className="text-slate-400 italic text-center py-2">काम पूरा होने पर फोटो यहाँ दिखेगा।</p>}
 
-            {custDetailBooking.isBilled && (
+            {activeBookingDetail.isBilled && (
               <div className="bg-slate-50 p-3 rounded-2xl border space-y-1">
-                <div className="flex justify-between"><span>लेबर चार्ज:</span><span>₹{custDetailBooking.labourFee}</span></div>
-                <div className="flex justify-between"><span>पार्ट्स का खर्चा:</span><span>₹{custDetailBooking.materialFee || 0}</span></div>
+                <div className="flex justify-between"><span>लेबर चार्ज:</span><span>₹{activeBookingDetail.labourFee}</span></div>
+                <div className="flex justify-between"><span>पार्ट्स का खर्चा:</span><span>₹{activeBookingDetail.materialFee || 0}</span></div>
                 <div className="flex justify-between font-black text-sm text-slate-900 border-t pt-1">
-                  <span>कुल फाइनल बिल:</span><span className="text-emerald-700">₹{custDetailBooking.finalTotal}</span>
+                  <span>कुल फाइनल बिल:</span><span className="text-emerald-700">₹{activeBookingDetail.finalTotal}</span>
                 </div>
               </div>
             )}
@@ -1116,52 +1367,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal 6: Customer Pay Bill */}
-      {customerPayBooking && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative text-xs text-center">
-            <button onClick={() => setCustomerPayBooking(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
-            <h3 className="font-black text-base text-slate-900">सर्विस बिल भुगतान</h3>
-            <div className="text-xl font-black text-emerald-700">देय राशि: ₹{customerPayBooking.finalTotal}</div>
-            
-            <img 
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=6367626276@upi%26pn=ElectricalHub%26am=${customerPayBooking.finalTotal}%26cu=INR`} 
-              alt="UPI QR Code" 
-              className="w-36 h-36 mx-auto rounded-2xl border bg-white p-1"
-            />
-
-            <div className="flex gap-2">
-              <button 
-                onClick={async () => {
-                  await updateDoc(doc(db, "bookings", customerPayBooking.docId), { paymentMode: 'cash', paymentStatus: 'cash_selected' });
-                  setCustomerPayBooking(null);
-                  alert("नकद भुगतान चुना गया!");
-                }}
-                className="flex-1 bg-slate-800 text-white font-bold py-2.5 rounded-xl"
-              >
-                💵 नकद (Cash)
-              </button>
-              <button 
-                onClick={async () => {
-                  await updateDoc(doc(db, "bookings", customerPayBooking.docId), { paymentMode: 'upi', paymentStatus: 'paid' });
-                  setCustomerPayBooking(null);
-                  alert("UPI भुगतान दर्ज हुआ!");
-                }}
-                className="flex-1 bg-emerald-700 text-white font-bold py-2.5 rounded-xl"
-              >
-                ✔ UPI पेड किया
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* 5. BOTTOM NAVIGATION BAR (EXACTLY MATCHING SCREENSHOT)         */}
-      {/* ============================================================== */}
+      {/* ==================================================================== */}
+      {/* 8. BOTTOM NAVIGATION BAR (MATCHING SCREENSHOT)                      */}
+      {/* ==================================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around py-2 z-40 max-w-md mx-auto shadow-2xl">
-        
-        {/* Tab 1: Home */}
         <button 
           onClick={() => setActiveTab('home')} 
           className={`flex flex-col items-center gap-0.5 ${activeTab === 'home' ? 'text-[#FF9900]' : 'text-slate-400'}`}
@@ -1170,7 +1379,6 @@ export default function App() {
           <span className="text-[10px] font-bold">Home</span>
         </button>
 
-        {/* Tab 2: Categories */}
         <button 
           onClick={() => setActiveTab('categories')} 
           className={`flex flex-col items-center gap-0.5 ${activeTab === 'categories' ? 'text-[#FF9900]' : 'text-slate-400'}`}
@@ -1179,7 +1387,6 @@ export default function App() {
           <span className="text-[10px] font-bold">Categories</span>
         </button>
 
-        {/* Tab 3: Cart */}
         <button 
           onClick={() => setActiveTab('cart')} 
           className={`flex flex-col items-center gap-0.5 relative ${activeTab === 'cart' ? 'text-[#FF9900]' : 'text-slate-400'}`}
@@ -1193,7 +1400,6 @@ export default function App() {
           )}
         </button>
 
-        {/* Tab 4: Orders */}
         <button 
           onClick={() => setActiveTab('orders')} 
           className={`flex flex-col items-center gap-0.5 ${activeTab === 'orders' ? 'text-[#FF9900]' : 'text-slate-400'}`}
@@ -1202,7 +1408,6 @@ export default function App() {
           <span className="text-[10px] font-bold">Orders</span>
         </button>
 
-        {/* Tab 5: Account */}
         <button 
           onClick={() => setActiveTab('account')} 
           className={`flex flex-col items-center gap-0.5 ${activeTab === 'account' ? 'text-[#FF9900]' : 'text-slate-400'}`}
@@ -1210,9 +1415,16 @@ export default function App() {
           <User className="w-5 h-5" />
           <span className="text-[10px] font-bold">Account</span>
         </button>
-
       </nav>
 
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <CustomerMarketplace />
+    </ErrorBoundary>
   );
 }
