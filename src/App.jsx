@@ -9,14 +9,12 @@ import {
   MapPin, ChevronDown, ChevronRight, ArrowLeft, Star, PhoneCall, 
   Shield, AlertTriangle, Clock, Truck, CheckCircle2, User, 
   LayoutGrid, ClipboardList, SlidersHorizontal, Plus, Minus, 
-  Trash2, Camera, QrCode, FileText, Check, Lock, RotateCcw, 
-  Sparkles, Filter, Grid, List, Tag, Share2, HelpCircle, X, 
-  CheckSquare, LogOut, LogIn, ExternalLink, RefreshCw, Send, 
-  AlertCircle, Calendar, ThumbsUp, MessageSquare, Info 
+  Trash2, QrCode, FileText, Check, Lock, Sparkles, Filter, 
+  Tag, HelpCircle, X, LogOut, Calendar, Package, Info 
 } from 'lucide-react';
 
 // ============================================================================
-// 1. FIREBASE CONFIGURATION (100% PURE CLIENT CLOUD INTEGRATION)
+// 1. FIREBASE CONFIGURATION (100% PURE CUSTOMER APP)
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDzD7cmC7h_uSOB22uNBvPlaO7U1w6Y1_k",
@@ -31,7 +29,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ============================================================================
-// 2. ERROR BOUNDARY (CRASH SHIELD - NO WHITE SCREEN GUARANTEE)
+// 2. ERROR SHIELD (ZERO WHITE SCREEN GUARANTEE)
 // ============================================================================
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -42,25 +40,25 @@ class ErrorBoundary extends Component {
     return { hasError: true, errorMsg: error?.message || 'सिस्टम रिकवरी' };
   }
   componentDidCatch(error, info) {
-    console.error("Critical Runtime Caught:", error, info);
+    console.error("App Crash Log:", error, info);
   }
   render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-[#0B1528] text-white p-6 flex flex-col items-center justify-center text-center font-sans max-w-md mx-auto">
           <AlertTriangle className="w-16 h-16 text-[#FF9900] mb-4 animate-bounce" />
-          <h2 className="text-xl font-black">विद्युत सेवा हब • रिकवरी मोड</h2>
+          <h2 className="text-xl font-black">विद्युत सेवा हब • रिकवरी</h2>
           <p className="text-xs text-slate-300 mt-2 bg-white/10 p-3 rounded-2xl border border-white/10">
             {this.state.errorMsg}
           </p>
           <button 
             onClick={() => {
-              localStorage.removeItem('esh_cart_pure');
+              localStorage.removeItem('esh_cart_v6');
               window.location.reload();
             }}
             className="mt-6 bg-[#FF9900] text-slate-950 font-black px-6 py-3 rounded-2xl text-xs shadow-xl active:scale-95 transition"
           >
-            ऐप पुनः लोड करें (Reload App)
+            ऐप पुनः लोड करें
           </button>
         </div>
       );
@@ -70,15 +68,15 @@ class ErrorBoundary extends Component {
 }
 
 // ============================================================================
-// 3. MAIN PURE CUSTOMER MARKETPLACE APPLICATION
+// 3. MAIN CUSTOMER MARKETPLACE APPLICATION
 // ============================================================================
 function CustomerMarketplace() {
   const [showSplash, setShowSplash] = useState(true);
 
-  // Customer Authentication Session
+  // Authentication State
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('esh_customer_session');
+      const saved = localStorage.getItem('esh_customer_v6');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;
@@ -93,67 +91,50 @@ function CustomerMarketplace() {
   const [authConfirmPin, setAuthConfirmPin] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Primary Navigation
-  // 'home' | 'categories' | 'store' | 'cart' | 'orders' | 'account'
+  // Navigation: 'home' | 'categories' | 'store' | 'cart' | 'orders' | 'account'
   const [activeTab, setActiveTab] = useState('home');
+  const [ordersSubTab, setOrdersSubTab] = useState('products'); // 'products' | 'services'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('popularity');
   const [deliveryLocation, setDeliveryLocation] = useState('Jaipur, Rajasthan');
 
-  // Interactive Product & Service Detail Views
+  // Interactive Detail Modals
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [bookingService, setBookingService] = useState(null);
   const [activeBookingDetail, setActiveBookingDetail] = useState(null);
-  const [activeOrderDetail, setActiveOrderDetail] = useState(null);
+  const [customerPayBooking, setCustomerPayBooking] = useState(null);
   const [checkoutModal, setCheckoutModal] = useState(false);
   const [notificationModal, setNotificationModal] = useState(false);
-  const [reviewModal, setReviewModal] = useState(null);
-  const [ratingVal, setRatingVal] = useState(5);
-  const [reviewText, setReviewText] = useState('');
-  const [complaintText, setComplaintText] = useState('');
 
-  // Cart & Wishlist with Database & Local Persistence
+  // Cart & Wishlist with Local Persistence
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem('esh_cart_pure');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem('esh_wishlist_pure');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  // Saved Addresses
-  const [savedAddresses, setSavedAddresses] = useState(() => {
-    try {
-      const saved = localStorage.getItem('esh_addresses_pure');
+      const saved = localStorage.getItem('esh_cart_v6');
       return saved ? JSON.parse(saved) : [
-        { id: 'addr_1', line: '42, Shanti Kunj, Civil Lines', city: 'Jaipur', pincode: '302006' }
+        { docId: 'p1', name: "Orient Ceiling Fan (1200mm)", price: 1399, mrp: 1999, discount: "-30%", quantity: 1, image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400" },
+        { docId: 'p2', name: "Philips LED Bulb (9W)", price: 89, mrp: 149, discount: "-40%", quantity: 1, image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=400" }
       ];
     } catch (e) {
       return [];
     }
   });
-  const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
 
-  // Firestore Realtime Collections
+  const [wishlist, setWishlist] = useState(['p1']);
+
+  // Saved Addresses
+  const [savedAddresses] = useState([
+    { id: 'addr_1', line: '42, Shanti Kunj, Civil Lines', city: 'Jaipur', pincode: '302006' }
+  ]);
+
+  // Firestore Realtime Data
   const [products, setProducts] = useState([]);
   const [services, setServices] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [orders, setOrders] = useState([]);
 
-  // Notifications Feed
-  const [notifications, setNotifications] = useState([
+  // Notifications
+  const [notifications] = useState([
     { id: 'n1', title: 'स्वागत है!', desc: 'विद्युत सेवा हब में आपका स्वागत है। 100% ओरिजिनल सामान व सेवाएँ उपलब्ध।', time: 'अभी', unread: true },
     { id: 'n2', title: 'समर डिस्काउंट लाइव', desc: 'सीलिंग फैन रिपेयर पर 20% तक की विशेष छूट पाएं।', time: '1 घंटा पहले', unread: true }
   ]);
@@ -164,166 +145,54 @@ function CustomerMarketplace() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Save Cart, Wishlist, Addresses
+  // Save Cart to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem('esh_cart_pure', JSON.stringify(cart));
+      localStorage.setItem('esh_cart_v6', JSON.stringify(cart));
     } catch (e) {}
   }, [cart]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('esh_wishlist_pure', JSON.stringify(wishlist));
-    } catch (e) {}
-  }, [wishlist]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('esh_addresses_pure', JSON.stringify(savedAddresses));
-    } catch (e) {}
-  }, [savedAddresses]);
-
   // 2. Real-Time Cloud Synchronization
   useEffect(() => {
-    // Products Listener
     const unsubProducts = onSnapshot(collection(db, "products"), async (snap) => {
       if (snap.empty) {
-        const defaultProducts = [
-          { 
-            name: "Orient Ceiling Fan (1200mm)", 
-            brand: "Orient Electric", 
-            category: "fans", 
-            price: 1399, 
-            mrp: 1999, 
-            discount: "-30%", 
-            rating: "4.6", 
-            reviewsCount: "5.2k", 
-            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
-            description: "1200mm हाई-स्पीड सीलिंग फैन, 100% कॉपर वाइंडिंग और रिब्ड एल्युमिनियम ब्लेड्स।",
-            specs: { "स्वीप साइज": "1200 mm", "पावर": "70W", "आरपीएम": "380 RPM", "वारंटी": "24 माह" }
-          },
-          { 
-            name: "Philips LED Bulb (9W)", 
-            brand: "Philips", 
-            category: "lights", 
-            price: 89, 
-            mrp: 149, 
-            discount: "-40%", 
-            rating: "4.7", 
-            reviewsCount: "8.7k", 
-            image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=500",
-            description: "क्रिस्टल व्हाइट कूल डेलाइट, आईकम्फर्ट तकनीक, 90% बिजली की बचत।",
-            specs: { "वॉटेज": "9 Watt", "बेस कैप": "B22", "कलर": "Cool Daylight", "वारंटी": "1 वर्ष" }
-          },
-          { 
-            name: "Havells Switch Board (6 Module)", 
-            brand: "Havells", 
-            category: "switches", 
-            price: 299, 
-            mrp: 399, 
-            discount: "-25%", 
-            rating: "4.5", 
-            reviewsCount: "3.1k", 
-            image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500",
-            description: "मॉड्यूलर प्लेट और सुरक्षा सॉकेट, फ्लेम रिटार्डेंट पॉलीकार्बोनेट शीट।",
-            specs: { "मॉड्यूल": "6 Module", "कलर": "Glossy White", "मटेरियल": "Polycarbonate" }
-          },
-          { 
-            name: "Finolex Wire (1.5 sqmm)", 
-            brand: "Finolex", 
-            category: "wires", 
-            price: 649, 
-            mrp: 999, 
-            discount: "-35%", 
-            rating: "4.6", 
-            reviewsCount: "4.8k", 
-            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
-            description: "100% शुद्ध कॉपर वायर 90 मीटर कॉइल, आग प्रतिरोधी IS/IEC प्रमाणित।",
-            specs: { "गेज": "1.5 Sq mm", "लंबाई": "90 Meters", "वोल्टेज": "1100V" }
-          }
+        const seedProducts = [
+          { name: "Orient Ceiling Fan (1200mm)", brand: "Orient", category: "fans", price: 1399, mrp: 1999, discount: "-30%", rating: "4.6", reviewsCount: "5.2k", image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500", description: "1200mm हाई-स्पीड सीलिंग फैन, 100% शुद्ध कॉपर वाइंडिंग और रिब्ड एल्युमिनियम ब्लेड्स।" },
+          { name: "Philips LED Bulb (9W)", brand: "Philips", category: "lights", price: 89, mrp: 149, discount: "-40%", rating: "4.7", reviewsCount: "8.7k", image: "https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=500", description: "क्रिस्टल व्हाइट कूल डेलाइट, आईकम्फर्ट तकनीक, 90% बिजली की बचत।" },
+          { name: "Havells Switch Board (6 Module)", brand: "Havells", category: "switches", price: 299, mrp: 399, discount: "-25%", rating: "4.5", reviewsCount: "3.1k", image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500", description: "मॉड्यूलर प्लेट और सुरक्षा सॉकेट, फ्लेम रिटार्डेंट पॉलीकार्बोनेट शीट।" },
+          { name: "Finolex Wire (1.5 sqmm)", brand: "Finolex", category: "wires", price: 649, mrp: 999, discount: "-35%", rating: "4.6", reviewsCount: "4.8k", image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500", description: "100% शुद्ध कॉपर वायर 90 मीटर कॉइल, आग प्रतिरोधी IS/IEC प्रमाणित।" }
         ];
-        for (const p of defaultProducts) await addDoc(collection(db, "products"), p);
+        for (const p of seedProducts) await addDoc(collection(db, "products"), p);
       } else {
         setProducts(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
       }
-    }, (err) => console.log("Products Sync:", err));
+    }, (err) => console.log("Products Fetch Error:", err));
 
-    // Services Listener
     const unsubServices = onSnapshot(collection(db, "services"), async (snap) => {
       if (snap.empty) {
-        const defaultServices = [
-          { 
-            name: "Fan Repair", 
-            nameHi: "सीलिंग पंखा रिपेयर",
-            category: "fans",
-            price: 199, 
-            mrp: 299, 
-            startingText: "₹199 onwards", 
-            rating: "4.8", 
-            bookedCount: "12k+", 
-            image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500",
-            description: "आवाज बंद करना, कैपेसिटर बदलाव, जाम बैरिंग, वाइब्रेशन व स्पीड समस्या का समाधान।",
-            includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर चेकिंग", "30 दिन की आधिकारिक गारंटी", "स्पीड टेस्ट"]
-          },
-          { 
-            name: "Wiring Repair", 
-            nameHi: "वायरिंग रिपेयर व फॉल्ट जांच",
-            category: "wiring",
-            price: 149, 
-            mrp: 249, 
-            startingText: "₹149 onwards", 
-            rating: "4.7", 
-            bookedCount: "8k+", 
-            image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500",
-            description: "एमसीबी ट्रिपिंग, स्पार्किंग, न्यूट्रल लीकेज व हिडन वायरिंग स्पार्किंग की डिजिटल जांच।",
-            includes: ["मल्टीमीटर पॉइंट टेस्टिंग", "लोड बैलेंसिंग टेस्ट", "अर्थिंग टेस्टर जांच", "30 दिन वारंटी"]
-          },
-          { 
-            name: "MCB Repair", 
-            nameHi: "एमसीबी व डीपी रिपेयर",
-            category: "switchgear",
-            price: 199, 
-            mrp: 299, 
-            startingText: "₹199 onwards", 
-            rating: "4.8", 
-            bookedCount: "6k+", 
-            image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500",
-            description: "जल चुके स्विच, ट्रिपिंग एमसीबी व न्यूट्रल फॉल्ट का स्थायी समाधान।",
-            includes: ["सुरक्षित कनेक्शन", "लोड टेस्टिंग", "30 दिन वारंटी"]
-          },
-          { 
-            name: "Inverter Installation", 
-            nameHi: "इन्वर्टर इंस्टालेशन",
-            category: "inverters",
-            price: 499, 
-            mrp: 699, 
-            startingText: "₹499 onwards", 
-            rating: "4.9", 
-            bookedCount: "4k+", 
-            image: "https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=500",
-            description: "घर के मेन लोड के साथ इन्वर्टर व बैटरी का हैवी केबल बाईपास कनेक्शन।",
-            includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल टेस्टिंग", "30 दिन वारंटी"]
-          }
+        const seedServices = [
+          { name: "Fan Repair", nameHi: "सीलिंग पंखा रिपेयर", category: "fans", price: 199, startingText: "₹199 onwards", rating: "4.8", bookedCount: "12k+", image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500", description: "पंखे की आवाज, कैपेसिटर बदलाव, जाम बैरिंग, वाइब्रेशन व स्पीड समस्या का समाधान।", includes: ["फॉल्ट डायग्नोसिस", "कैपेसिटर चेकिंग", "30 दिन की गारंटी"] },
+          { name: "Wiring Repair", nameHi: "वायरिंग रिपेयर व फॉल्ट जांच", category: "wiring", price: 149, startingText: "₹149 onwards", rating: "4.7", bookedCount: "8k+", image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500", description: "शॉर्ट सर्किट, स्पार्किंग, न्यूट्रल लीकेज व हिडन वायरिंग स्पार्किंग की डिजिटल जांच।", includes: ["मल्टीमीटर पॉइंट टेस्टिंग", "लोड बैलेंसिंग टेस्ट", "30 दिन वारंटी"] },
+          { name: "MCB Repair", nameHi: "एमसीबी व डीपी रिपेयर", category: "switchgear", price: 199, startingText: "₹199 onwards", rating: "4.8", bookedCount: "6k+", image: "https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=500", description: "जल चुके स्विच, ट्रिपिंग एमसीबी व न्यूट्रल फॉल्ट का स्थायी समाधान।", includes: ["सुरक्षित कनेक्शन", "लोड टेस्टिंग", "30 दिन वारंटी"] },
+          { name: "Inverter Installation", nameHi: "इन्वर्टर इंस्टालेशन", category: "inverters", price: 499, startingText: "₹499 onwards", rating: "4.9", bookedCount: "4k+", image: "https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?w=500", description: "घर के मेन लोड के साथ इन्वर्टर व बैटरी का हैवी केबल बाईपास कनेक्शन।", includes: ["हैवी लग क्रिम्पिंग", "लोड डिस्ट्रीब्यूशन", "फुल टेस्टिंग"] }
         ];
-        for (const s of defaultServices) await addDoc(collection(db, "services"), s);
+        for (const s of seedServices) await addDoc(collection(db, "services"), s);
       } else {
         setServices(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
       }
-    }, (err) => console.log("Services Sync:", err));
+    }, (err) => console.log("Services Fetch Error:", err));
 
-    // Bookings Listener
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
       const list = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setBookings(list);
-    }, (err) => console.log("Bookings Sync:", err));
+    }, (err) => console.log("Bookings Fetch Error:", err));
 
-    // Orders Listener
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
       const list = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setOrders(list);
-    }, (err) => console.log("Orders Sync:", err));
+    }, (err) => console.log("Orders Fetch Error:", err));
 
     return () => {
       unsubProducts();
@@ -340,7 +209,7 @@ function CustomerMarketplace() {
   const cartDeliveryFee = cartSubtotal > 999 || cartSubtotal === 0 ? 0 : 70;
   const cartFinalTotal = cartSubtotal + cartDeliveryFee;
 
-  // 3. Customer Authentication Submit
+  // 3. Customer Authentication
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     if (authPhone.length !== 10 || authPin.length !== 4) {
@@ -366,7 +235,7 @@ function CustomerMarketplace() {
         if (userSnap.exists()) {
           setAuthLoading(false);
           setAuthMode('login');
-          return alert("यह मोबाइल नंबर पहले से रजिस्टर्ड है! कृपया सीधे लॉगिन करें।");
+          return alert("यह मोबाइल नंबर पहले से रजिस्टर्ड है! सीधे लॉगिन करें।");
         }
 
         const newUser = {
@@ -379,22 +248,22 @@ function CustomerMarketplace() {
 
         await setDoc(userRef, newUser);
         setUser(newUser);
-        localStorage.setItem('esh_customer_session', JSON.stringify(newUser));
+        localStorage.setItem('esh_customer_v6', JSON.stringify(newUser));
         setAuthModal(false);
-        alert(`स्वागत है ${newUser.name}! आपका अकाउंट सफलतापूर्वक बन गया है।`);
+        alert(`स्वागत है ${newUser.name}! आपका अकाउंट तैयार है।`);
       } else {
         if (!userSnap.exists()) {
           setAuthLoading(false);
           setAuthMode('register');
-          return alert("यह नंबर रजिस्टर्ड नहीं है! कृपया पहले नया खाता बनाएं।");
+          return alert("यह नंबर रजिस्टर्ड नहीं है! पहले नया खाता बनाएं।");
         }
         const userData = userSnap.data();
         if (userData.pin !== authPin.trim()) {
           setAuthLoading(false);
-          return alert("गलत पिन! कृपया सही 4-अंकों का पिन डालें।");
+          return alert("गलत पिन! सही 4-अंकों का पिन डालें।");
         }
         setUser(userData);
-        localStorage.setItem('esh_customer_session', JSON.stringify(userData));
+        localStorage.setItem('esh_customer_v6', JSON.stringify(userData));
         setAuthModal(false);
         alert(`नमस्ते ${userData.name}! लॉगिन सफल हुआ।`);
       }
@@ -407,7 +276,7 @@ function CustomerMarketplace() {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('esh_customer_session');
+    localStorage.removeItem('esh_customer_v6');
     setActiveTab('home');
   };
 
@@ -422,11 +291,7 @@ function CustomerMarketplace() {
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
-    // Add Notification
-    setNotifications(prev => [
-      { id: Date.now().toString(), title: 'कार्ट अपडेट', desc: `"${product.name}" आपके कार्ट में जोड़ दिया गया है।`, time: 'अभी', unread: true },
-      ...prev
-    ]);
+    alert(`"${product.name}" कार्ट में जोड़ दिया गया है!`);
   };
 
   const handleUpdateCartQty = (idx, delta) => {
@@ -443,11 +308,11 @@ function CustomerMarketplace() {
   const handleToggleWishlist = (product, e) => {
     if (e) e.stopPropagation();
     const id = product.docId || product.name;
-    const exists = wishlist.some(i => (i.docId || i.name) === id);
+    const exists = wishlist.includes(id);
     if (exists) {
-      setWishlist(wishlist.filter(i => (i.docId || i.name) !== id));
+      setWishlist(wishlist.filter(i => i !== id));
     } else {
-      setWishlist([...wishlist, product]);
+      setWishlist([...wishlist, id]);
     }
   };
 
@@ -460,21 +325,17 @@ function CustomerMarketplace() {
     }
     const form = e.target;
     const bookingRef = "ESH-" + Math.floor(100000 + Math.random() * 900000);
-    const selectedAddr = savedAddresses[selectedAddressIndex] || { line: form.customAddress?.value || "मानसरोवर, जयपुर" };
 
     const bookingData = {
       bookingId: bookingRef,
-      serviceId: bookingService.docId || 'srv_gen',
       serviceName: bookingService.name,
       price: bookingService.price,
       customerName: user.name,
       customerPhone: user.phone,
       slot: form.slot.value,
       scheduledDate: form.serviceDate.value,
-      address: `${selectedAddr.line}, ${selectedAddr.city || 'Jaipur'}`,
-      instructions: form.instructions?.value || '',
-      paymentMode: form.paymentMode?.value || 'cash',
-      status: "Placed", // Placed -> Confirmed -> On The Way -> In Progress -> Completed -> Cancelled
+      address: form.address.value,
+      status: "Placed", // Placed -> Confirmed -> On The Way -> In Progress -> Completed
       paymentStatus: "unpaid",
       createdAt: Date.now()
     };
@@ -483,9 +344,10 @@ function CustomerMarketplace() {
       await addDoc(collection(db, "bookings"), bookingData);
       setBookingService(null);
       setActiveTab('orders');
-      alert(`🎉 बधाई! सर्विस बुकिंग दर्ज हो गई है (ID: #${bookingRef})\nलाइव ट्रैकिंग शुरू हो गई है।`);
+      setOrdersSubTab('services');
+      alert(`🎉 बुकिंग सफल! रिफरेंस: #${bookingRef}\nलाइव ट्रैकिंग शुरू हो गई है।`);
     } catch (err) {
-      alert("बुकिंग सेव करने में एरर: " + err.message);
+      alert("बुकिंग सेव एरर: " + err.message);
     }
   };
 
@@ -496,7 +358,7 @@ function CustomerMarketplace() {
       setAuthModal(true);
       return;
     }
-    if (!cart.length) return alert("आपकी कार्ट खाली है!");
+    if (!cart.length) return alert("कार्ट खाली है!");
     const form = e.target;
     const orderNumber = "OD-" + Math.floor(100000 + Math.random() * 900000);
 
@@ -513,7 +375,7 @@ function CustomerMarketplace() {
       subtotal: cartSubtotal,
       deliveryCharge: cartDeliveryFee,
       finalAmount: cartFinalTotal,
-      paymentMode: form.paymentMode.value, // 'cod' | 'online_upi'
+      paymentMode: form.paymentMode.value,
       orderStatus: 'Placed',
       paymentStatus: form.paymentMode.value === 'online_upi' ? 'pending_verification' : 'unpaid',
       createdAt: Date.now()
@@ -524,33 +386,14 @@ function CustomerMarketplace() {
       setCart([]);
       setCheckoutModal(false);
       setActiveTab('orders');
-      alert(`🎉 ऑर्डर सफलतापूर्वक दर्ज हुआ! ऑर्डर क्रमांक: #${orderNumber}`);
+      setOrdersSubTab('products');
+      alert(`🎉 ऑर्डर दर्ज हुआ! ऑर्डर क्रमांक: #${orderNumber}`);
     } catch (err) {
       alert("ऑर्डर सबमिट एरर: " + err.message);
     }
   };
 
-  // 7. Rating & Review Submission
-  const handleSubmitReview = async (e) => {
-    e.preventDefault();
-    if (!reviewModal) return;
-    try {
-      await updateDoc(doc(db, "bookings", reviewModal.docId), {
-        rating: ratingVal,
-        review: reviewText,
-        complaint: complaintText || null,
-        complaintStatus: complaintText ? "Pending" : null
-      });
-      alert("आपकी रेटिंग और प्रतिक्रिया दर्ज कर ली गई है। धन्यवाद!");
-      setReviewModal(null);
-      setReviewText('');
-      setComplaintText('');
-    } catch (err) {
-      alert("एरर: " + err.message);
-    }
-  };
-
-  // Categories Metadata matching Visual Reference Image
+  // Categories Metadata
   const categoryTiles = [
     { id: 'fans', name: 'Fans', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160' },
     { id: 'lights', name: 'Lights', img: 'https://images.unsplash.com/photo-1550985543-f47f38aeee65?w=160' },
@@ -562,9 +405,7 @@ function CustomerMarketplace() {
     { id: 'all', name: 'More', img: 'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?w=160' }
   ];
 
-  // ==========================================================================
-  // SPLASH SCREEN
-  // ==========================================================================
+  // Splash Screen
   if (showSplash) {
     return (
       <div className="min-h-screen bg-[#0A1128] flex flex-col items-center justify-center p-6 text-white text-center font-sans max-w-md mx-auto">
@@ -581,11 +422,11 @@ function CustomerMarketplace() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20 font-sans max-w-md mx-auto relative shadow-2xl overflow-hidden">
       
       {/* ==================================================================== */}
-      {/* 1. TOP HEADER (EXACTLY MATCHING BRAND IDENTITY)                     */}
+      {/* 1. TOP HEADER                                                       */}
       {/* ==================================================================== */}
       <header className="bg-[#0B1528] text-white pt-3 pb-3.5 px-4 sticky top-0 z-30 shadow-md">
         
-        {/* Brand Bar */}
+        {/* Logo and Right Icons */}
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-[#FF9900] rounded-2xl flex items-center justify-center shadow-lg border border-amber-200">
@@ -598,11 +439,7 @@ function CustomerMarketplace() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* Notification Bell */}
-            <button 
-              onClick={() => setNotificationModal(true)} 
-              className="relative p-1.5 text-slate-200 hover:text-white rounded-xl active:bg-white/10"
-            >
+            <button onClick={() => setNotificationModal(true)} className="relative p-1.5 text-slate-200 hover:text-white rounded-xl">
               <Bell className="w-5 h-5" />
               {notifications.filter(n => n.unread).length > 0 && (
                 <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
@@ -611,11 +448,7 @@ function CustomerMarketplace() {
               )}
             </button>
 
-            {/* Cart Icon */}
-            <button 
-              onClick={() => setActiveTab('cart')} 
-              className="relative p-1.5 text-slate-200 hover:text-white rounded-xl active:bg-white/10"
-            >
+            <button onClick={() => setActiveTab('cart')} className="relative p-1.5 text-slate-200 hover:text-white rounded-xl">
               <ShoppingCart className="w-5 h-5" />
               {cart.length > 0 && (
                 <span className="absolute top-0.5 right-0.5 bg-[#FF9900] text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
@@ -637,10 +470,10 @@ function CustomerMarketplace() {
           <MapPin className="w-3.5 h-3.5 text-[#FF9900] flex-shrink-0" />
           <span className="font-bold text-white">{deliveryLocation}</span>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[10px] text-emerald-400 font-bold ml-1">● 45 मिनट में डिलीवरी</span>
+          <span className="text-[10px] text-emerald-400 font-bold ml-1">● 45m एक्सप्रेस</span>
         </div>
 
-        {/* Global Search Bar */}
+        {/* Global Search */}
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3" />
           <input 
@@ -648,24 +481,21 @@ function CustomerMarketplace() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => { if (activeTab === 'home') setActiveTab('store'); }}
-            placeholder="सर्च करें: पंखा रिपेयर, एलईडी बल्ब, 2.5mm वायर..."
+            placeholder="Search Products & Services..."
             className="w-full pl-11 pr-4 py-2.5 bg-white text-slate-900 rounded-full text-xs font-semibold shadow-inner focus:outline-none focus:ring-2 focus:ring-[#FF9900]"
           />
         </div>
       </header>
 
       {/* ==================================================================== */}
-      {/* 2. TAB: HOME SCREEN (EXACTLY MATCHING LEFT SCREEN)                  */}
+      {/* 2. TAB: HOME SCREEN                                                 */}
       {/* ==================================================================== */}
       {activeTab === 'home' && (
         <main className="p-3.5 space-y-4">
           
-          {/* Promotional Hero Carousel Banner */}
+          {/* Hero Banner */}
           <div className="bg-gradient-to-r from-[#0C1B33] via-[#0F2B5C] to-[#12397B] text-white rounded-3xl p-5 relative overflow-hidden shadow-xl border border-blue-900/50">
             <div className="max-w-[65%] space-y-2 relative z-10">
-              <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                स्मार्ट होम सॉल्युशन
-              </span>
               <h2 className="text-base font-black leading-tight text-white">
                 Upgrade Your Home with Smart Electrical Solutions
               </h2>
@@ -683,14 +513,11 @@ function CustomerMarketplace() {
             />
           </div>
 
-          {/* Shop by Category Section */}
+          {/* Shop by Category */}
           <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Shop by Category</h3>
-              <button 
-                onClick={() => setActiveTab('categories')} 
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center"
-              >
+              <button onClick={() => setActiveTab('categories')} className="text-xs font-bold text-blue-600 flex items-center">
                 View All <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -712,14 +539,11 @@ function CustomerMarketplace() {
             </div>
           </section>
 
-          {/* Popular Services Section */}
+          {/* Popular Services */}
           <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Popular Services</h3>
-              <button 
-                onClick={() => setActiveTab('categories')} 
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center"
-              >
+              <button onClick={() => setActiveTab('categories')} className="text-xs font-bold text-blue-600 flex items-center">
                 View All <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -766,14 +590,11 @@ function CustomerMarketplace() {
             </a>
           </div>
 
-          {/* Best Selling Products Section */}
+          {/* Best Selling Products */}
           <section className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h3 className="font-black text-sm text-slate-900 tracking-tight">Best Selling Products</h3>
-              <button 
-                onClick={() => setActiveTab('store')} 
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center"
-              >
+              <button onClick={() => setActiveTab('store')} className="text-xs font-bold text-blue-600 flex items-center">
                 View All <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -789,17 +610,14 @@ function CustomerMarketplace() {
                     <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-md">
                       {p.discount || "-30%"}
                     </span>
-                    <button 
-                      onClick={(e) => handleToggleWishlist(p, e)} 
-                      className="absolute right-0 top-0 text-slate-400 p-1"
-                    >
-                      <Heart className={`w-4 h-4 ${wishlist.some(i => (i.docId || i.name) === (p.docId || p.name)) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    <button onClick={(e) => handleToggleWishlist(p, e)} className="absolute right-0 top-0 text-slate-400 p-1">
+                      <Heart className={`w-4 h-4 ${wishlist.includes(p.docId || p.name) ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </button>
                     <img src={p.image} alt={p.name} className="w-full h-24 object-contain my-2" />
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{p.name}</h4>
-                    <span className="text-[10px] text-amber-500 font-bold block mt-0.5">★ {p.rating} ({p.reviewsCount || '1k+'})</span>
+                    <span className="text-[10px] text-amber-500 font-bold block mt-0.5">★ {p.rating}</span>
                     <div className="flex items-baseline gap-1.5 mt-1">
                       <span className="font-black text-sm text-slate-900">₹{p.price}</span>
                       <span className="text-xs text-slate-400 line-through">₹{p.mrp}</span>
@@ -818,106 +636,9 @@ function CustomerMarketplace() {
 
         </main>
       )}
-      {/* ================= 4. TAB: CART SCREEN ================= */}
-      {activeTab === 'cart' && (
-        <main className="p-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-[#FF9900]" /> शॉपिंग कार्ट ({cart.length})
-            </h2>
-            {cart.length > 0 && (
-              <button onClick={() => setCart([])} className="text-xs text-rose-600 font-bold flex items-center gap-1">
-                <Trash2 className="w-3.5 h-3.5" /> खाली करें
-              </button>
-            )}
-          </div>
-
-          {cart.length === 0 ? (
-            <div className="bg-white p-8 rounded-3xl text-center border space-y-3 shadow-sm">
-              <ShoppingCart className="w-14 h-14 text-slate-300 mx-auto" />
-              <h3 className="font-black text-sm text-slate-800">आपकी कार्ट अभी खाली है!</h3>
-              <p className="text-xs text-slate-400">स्टोर से पंखे, तार, एमसीबी व अन्य सामान चुनें</p>
-              <button 
-                onClick={() => setActiveTab('home')} 
-                className="bg-[#0B1528] text-[#FF9900] font-black px-6 py-2.5 rounded-xl text-xs shadow-md mt-2"
-              >
-                सामान स्टोर खोलें ➔
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map((item, idx) => (
-                <div key={idx} className="bg-white p-3.5 rounded-3xl border shadow-sm flex items-center justify-between text-xs gap-3">
-                  <img 
-                    src={item.image || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160"} 
-                    alt={item.name} 
-                    className="w-14 h-14 object-contain rounded-xl bg-slate-50 border p-1" 
-                  />
-                  <div className="flex-1">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold">{item.brand || 'Electrical Hub'}</span>
-                    <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
-                    <div className="text-sm font-black text-slate-900 mt-0.5">₹{item.price * item.quantity}</div>
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-slate-50 border rounded-xl p-1">
-                    <button 
-                      onClick={() => {
-                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity - 1 } : x).filter(x => x.quantity > 0);
-                        setCart(updated);
-                      }} 
-                      className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm"
-                    >-</button>
-                    <span className="font-black text-xs w-4 text-center">{item.quantity}</span>
-                    <button 
-                      onClick={() => {
-                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x);
-                        setCart(updated);
-                      }} 
-                      className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm"
-                    >+</button>
-                  </div>
-                </div>
-              ))}
-
-              <div className="bg-white p-4 rounded-3xl border space-y-2.5 text-xs shadow-sm">
-                <div className="flex justify-between font-bold text-slate-600">
-                  <span>सामान का मूल्य:</span>
-                  <span className="text-slate-900 font-black">₹{cartSubtotal}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-600">
-                  <span>डिलीवरी शुल्क:</span>
-                  <span className="text-emerald-600 font-bold">{cartSubtotal > 999 ? "फ्री (Free)" : "₹70"}</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between font-black text-sm text-slate-900">
-                  <span>कुल देय राशि:</span>
-                  <span className="text-emerald-700 text-base">₹{cartSubtotal + (cartSubtotal > 999 ? 0 : 70)}</span>
-                </div>
-                <button 
-                  onClick={() => setCheckoutModal(true)}
-                  className="w-full mt-2 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-3 rounded-2xl shadow-lg active:scale-95 transition text-xs"
-                >
-                  चेकआउट करें (Proceed to Buy) ➔
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-      )}
-
-      {/* ================= 5. TAB: ORDERS SCREEN ================= */}
-      {activeTab === 'orders' && (
-        <main className="p-4 space-y-4">
-          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व लाइव ट्रैकिंग</h2>
-
-          {/* Toggle: Products vs Services */}
-          <div className="flex bg-slate-200 p-1 rounded-2xl text-xs font-black shadow-inner">
-            <button 
-              onClick={() => setSelectedCategory('orders_products')}
-              className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
-                selectedCategory !== 'orders_services' ? 'bg-[#0B1528] text-[#FF9900] shadow' : 'text-s
 
       {/* ==================================================================== */}
-      {/* 3. TAB: CATEGORIES SCREEN (EXACTLY MATCHING MIDDLE SCREEN)          */}
+      {/* 3. TAB: CATEGORIES SCREEN                                           */}
       {/* ==================================================================== */}
       {activeTab === 'categories' && (
         <main className="p-3.5 space-y-4">
@@ -931,21 +652,6 @@ function CustomerMarketplace() {
             </button>
           </div>
 
-          {/* Banner */}
-          <div className="bg-gradient-to-r from-amber-400 via-[#FF9900] to-orange-500 text-slate-950 rounded-3xl p-4 shadow-lg flex justify-between items-center">
-            <div className="space-y-1">
-              <h3 className="font-black text-sm">Electrical Products at Best Prices</h3>
-              <p className="text-[11px] font-bold text-slate-800">Quality • Savings • Trust</p>
-              <button 
-                onClick={() => setActiveTab('store')}
-                className="bg-[#0B1528] text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow mt-2"
-              >
-                Shop Now ➔
-              </button>
-            </div>
-          </div>
-
-          {/* Product Categories Grid */}
           <section className="space-y-2">
             <h3 className="font-black text-sm text-slate-900 px-1">सामान श्रेणियाँ (Product Categories)</h3>
             <div className="grid grid-cols-3 gap-2.5">
@@ -965,7 +671,6 @@ function CustomerMarketplace() {
             </div>
           </section>
 
-          {/* Service Categories Grid */}
           <section className="space-y-2 pt-1">
             <h3 className="font-black text-sm text-slate-900 px-1">सर्विस श्रेणियाँ (Service Categories)</h3>
             <div className="grid grid-cols-2 gap-2.5">
@@ -988,7 +693,7 @@ function CustomerMarketplace() {
       )}
 
       {/* ==================================================================== */}
-      {/* 4. TAB: STORE & PRODUCTS LISTING (EXACTLY MATCHING RIGHT SCREEN)    */}
+      {/* 4. TAB: STORE SCREEN                                                */}
       {/* ==================================================================== */}
       {activeTab === 'store' && (
         <main className="p-3.5 space-y-3.5">
@@ -1008,40 +713,10 @@ function CustomerMarketplace() {
             </div>
           </div>
 
-          {/* Sort & Filter Controls */}
-          <div className="flex justify-between items-center text-xs px-1">
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setSortBy(sortBy === 'price_asc' ? 'price_desc' : 'price_asc')}
-                className="bg-white border px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm"
-              >
-                Sort: {sortBy === 'price_asc' ? 'Price Low' : sortBy === 'price_desc' ? 'Price High' : 'Popular'} <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              <select 
-                value={selectedCategory} 
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-white border px-2 py-1.5 rounded-xl font-bold text-slate-700 shadow-sm"
-              >
-                <option value="all">सभी कैटेगरी</option>
-                <option value="fans">Fans</option>
-                <option value="lights">Lights</option>
-                <option value="switches">Switches</option>
-                <option value="wires">Wires</option>
-              </select>
-            </div>
-            <span className="text-[11px] font-bold text-slate-500">{products.length} प्रोडक्ट्स</span>
-          </div>
-
-          {/* 2-Column Product Grid */}
           <div className="grid grid-cols-2 gap-3">
             {products
               .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
-              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand?.toLowerCase().includes(searchQuery.toLowerCase()))
-              .sort((a, b) => {
-                if (sortBy === 'price_asc') return a.price - b.price;
-                if (sortBy === 'price_desc') return b.price - a.price;
-                return 0;
-              })
+              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
               .map((p) => (
                 <div 
                   key={p.docId}
@@ -1052,11 +727,8 @@ function CustomerMarketplace() {
                     <span className="bg-[#FF9900] text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md">
                       {p.discount || "-30%"}
                     </span>
-                    <button 
-                      onClick={(e) => handleToggleWishlist(p, e)} 
-                      className="absolute right-0 top-0 text-slate-400 p-1"
-                    >
-                      <Heart className={`w-4 h-4 ${wishlist.some(i => (i.docId || i.name) === (p.docId || p.name)) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    <button onClick={(e) => handleToggleWishlist(p, e)} className="absolute right-0 top-0 text-slate-400 p-1">
+                      <Heart className={`w-4 h-4 ${wishlist.includes(p.docId || p.name) ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </button>
                     <img src={p.image} alt={p.name} className="w-full h-28 object-contain my-2" />
                   </div>
@@ -1084,99 +756,213 @@ function CustomerMarketplace() {
       )}
 
       {/* ==================================================================== */}
-      {/* 5. TAB: ORDERS & BOOKINGS (WITH AMAZON PROGRESS TRACKER)            */}
+      {/* 5. TAB: CART SCREEN                                                 */}
       {/* ==================================================================== */}
-      {activeTab === 'orders' && (
+      {activeTab === 'cart' && (
         <main className="p-4 space-y-4">
-          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व बुकिंग्स</h2>
-
-          {/* Service Bookings Feed */}
-          <div className="space-y-3">
-            <h3 className="font-bold text-xs text-slate-500 uppercase">इलेक्ट्रिकल सर्विस बुकिंग्स ({bookings.length})</h3>
-            
-            {bookings.length === 0 ? (
-              <p className="text-xs text-slate-400 bg-white p-4 rounded-2xl border text-center">अभी कोई बुकिंग दर्ज नहीं है।</p>
-            ) : (
-              bookings.map((b) => (
-                <div key={b.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="font-bold text-xs text-blue-900">#{b.bookingId}</span>
-                      <h4 className="font-black text-sm text-slate-900 mt-0.5">{b.serviceName}</h4>
-                      <p className="text-[11px] text-slate-500">स्लॉट: {b.slot} | तारीख: {b.scheduledDate || 'आज'}</p>
-                    </div>
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${
-                      b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {b.status}
-                    </span>
-                  </div>
-
-                  {/* Amazon Step Progress Bar */}
-                  <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-blue-900 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> स्वीकृत</span>
-                      <span className={b.status === 'On The Way' || b.status === 'In Progress' || b.status === 'Completed' ? 'text-purple-700' : 'text-slate-300'}>
-                        रास्ते में
-                      </span>
-                      <span className={b.status === 'Completed' ? 'text-emerald-600' : 'text-slate-300'}>
-                        पूरा हुआ
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div className={`h-full transition-all duration-500 ${
-                        b.status === 'Confirmed' ? 'w-1/3 bg-blue-600' :
-                        b.status === 'On The Way' ? 'w-2/3 bg-purple-600' :
-                        b.status === 'Completed' ? 'w-full bg-emerald-600' : 'w-1/4 bg-yellow-400'
-                      }`} />
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setActiveBookingDetail(b)} 
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-blue-900" /> फोटो प्रूफ व रसीद
-                    </button>
-                    {b.status === 'Completed' && !b.rating && (
-                      <button 
-                        onClick={() => setReviewModal(b)} 
-                        className="flex-1 bg-[#FF9900] text-slate-950 font-black py-2 rounded-xl text-xs flex items-center justify-center gap-1 shadow"
-                      >
-                        <Star className="w-3.5 h-3.5 fill-slate-950" /> रेटिंग दें
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
+          <div className="flex justify-between items-center">
+            <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-[#FF9900]" /> शॉपिंग कार्ट ({cart.length})
+            </h2>
+            {cart.length > 0 && (
+              <button onClick={() => setCart([])} className="text-xs text-rose-600 font-bold flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" /> खाली करें
+              </button>
             )}
           </div>
 
-          {/* Product Orders Feed */}
-          <div className="space-y-3 pt-2">
-            <h3 className="font-bold text-xs text-slate-500 uppercase">सामान ऑर्डर्स ({orders.length})</h3>
-            {orders.map((o) => (
-              <div key={o.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-2 text-xs">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="font-bold text-blue-900">#{o.orderNumber}</span>
-                    <h4 className="font-black text-sm text-slate-900 mt-0.5">{o.items?.length || 1} उत्पाद • कुल: ₹{o.finalAmount}</h4>
-                    <p className="text-slate-500">मोड: {o.paymentMode === 'cod' ? 'कैश ऑन डिलीवरी' : 'ऑनलाइन UPI'}</p>
+          {cart.length === 0 ? (
+            <div className="bg-white p-8 rounded-3xl text-center border space-y-3 shadow-sm">
+              <ShoppingCart className="w-14 h-14 text-slate-300 mx-auto" />
+              <h3 className="font-black text-sm text-slate-800">आपकी कार्ट अभी खाली है!</h3>
+              <p className="text-xs text-slate-400">स्टोर से पंखे, तार, एमसीबी व अन्य सामान चुनें</p>
+              <button onClick={() => setActiveTab('store')} className="bg-[#0B1528] text-[#FF9900] font-black px-6 py-2.5 rounded-xl text-xs shadow-md mt-2">
+                सामान स्टोर खोलें ➔
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cart.map((item, idx) => (
+                <div key={idx} className="bg-white p-3.5 rounded-3xl border shadow-sm flex items-center justify-between text-xs gap-3">
+                  <img src={item.image || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160"} alt={item.name} className="w-14 h-14 object-contain rounded-xl bg-slate-50 border p-1" />
+                  <div className="flex-1">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold">{item.brand || 'Electrical Hub'}</span>
+                    <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
+                    <div className="text-sm font-black text-slate-900 mt-0.5">₹{item.price * item.quantity}</div>
                   </div>
-                  <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-black text-[10px]">
-                    {o.orderStatus}
-                  </span>
+                  <div className="flex items-center gap-2 bg-slate-50 border rounded-xl p-1">
+                    <button onClick={() => handleUpdateCartQty(idx, -1)} className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm">-</button>
+                    <span className="font-black text-xs w-4 text-center">{item.quantity}</span>
+                    <button onClick={() => handleUpdateCartQty(idx, 1)} className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm">+</button>
+                  </div>
                 </div>
+              ))}
+
+              <div className="bg-white p-4 rounded-3xl border space-y-2.5 text-xs shadow-sm">
+                <div className="flex justify-between font-bold text-slate-600">
+                  <span>सामान का मूल्य:</span><span className="text-slate-900 font-black">₹{cartSubtotal}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-600">
+                  <span>डिलीवरी शुल्क:</span><span className="text-emerald-600 font-bold">{cartSubtotal > 999 ? "फ्री" : "₹70"}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-black text-sm text-slate-900">
+                  <span>कुल देय राशि:</span><span className="text-emerald-700 text-base">₹{cartFinalTotal}</span>
+                </div>
+                <button onClick={() => setCheckoutModal(true)} className="w-full mt-2 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-3 rounded-2xl shadow-lg active:scale-95 transition text-xs">
+                  चेकआउट करें (Proceed to Buy) ➔
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </main>
       )}
 
       {/* ==================================================================== */}
-      {/* 6. TAB: CUSTOMER ACCOUNT                                            */}
+      {/* 6. TAB: ORDERS & BOOKINGS SCREEN                                    */}
+      {/* ==================================================================== */}
+      {activeTab === 'orders' && (
+        <main className="p-4 space-y-4">
+          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व लाइव ट्रैकिंग</h2>
+
+          {/* Sub-Tab Selector: Products vs Services */}
+          <div className="flex bg-slate-200 p-1 rounded-2xl text-xs font-black shadow-inner">
+            <button 
+              onClick={() => setOrdersSubTab('products')}
+              className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                ordersSubTab === 'products' ? 'bg-[#0B1528] text-[#FF9900] shadow' : 'text-slate-600'
+              }`}
+            >
+              <Package className="w-4 h-4" /> सामान ऑर्डर्स ({orders.length})
+            </button>
+            <button 
+              onClick={() => setOrdersSubTab('services')}
+              className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                ordersSubTab === 'services' ? 'bg-[#0B1528] text-[#FF9900] shadow' : 'text-slate-600'
+              }`}
+            >
+              <Zap className="w-4 h-4" /> सर्विस बुकिंग्स ({bookings.length})
+            </button>
+          </div>
+
+          {/* VIEW 1: PRODUCT ORDERS */}
+          {ordersSubTab === 'products' && (
+            <div className="space-y-3">
+              {orders.length === 0 ? (
+                <div className="bg-white p-8 rounded-3xl text-center border space-y-2 text-xs text-slate-400">
+                  <Package className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="font-bold text-slate-600">आपने अभी तक कोई सामान ऑर्डर नहीं किया है।</p>
+                  <button onClick={() => setActiveTab('store')} className="text-[#FF9900] font-black underline">स्टोर से सामान खरीदें</button>
+                </div>
+              ) : (
+                orders.map((o) => (
+                  <div key={o.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <div className="flex justify-between items-start border-b pb-2">
+                      <div>
+                        <span className="font-bold text-blue-900">ऑर्डर ID: #{o.orderNumber}</span>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {o.createdAt ? new Date(o.createdAt).toLocaleString('hi-IN') : 'हाल ही में'}
+                        </div>
+                      </div>
+                      <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-black text-[10px]">
+                        {o.orderStatus || 'Placed'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-slate-700">
+                      {o.items?.map((it, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="truncate max-w-[200px]">{it.name} (x{it.quantity})</span>
+                          <span className="font-bold">₹{it.price * it.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-blue-900">ऑर्डर दर्ज</span>
+                        <span className={o.orderStatus === 'Shipped' || o.orderStatus === 'Out for Delivery' || o.orderStatus === 'Delivered' ? 'text-blue-900' : 'text-slate-300'}>डिस्पैच</span>
+                        <span className={o.orderStatus === 'Out for Delivery' || o.orderStatus === 'Delivered' ? 'text-purple-700' : 'text-slate-300'}>रास्ते में</span>
+                        <span className={o.orderStatus === 'Delivered' ? 'text-emerald-600' : 'text-slate-300'}>डिलीवर</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div className={`h-full transition-all duration-500 ${
+                          o.orderStatus === 'Delivered' ? 'w-full bg-emerald-600' :
+                          o.orderStatus === 'Out for Delivery' ? 'w-3/4 bg-purple-600' :
+                          o.orderStatus === 'Shipped' ? 'w-2/4 bg-blue-600' : 'w-1/4 bg-[#FF9900]'
+                        }`} />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 font-bold text-slate-800">
+                      <span>कुल भुगतान:</span>
+                      <span className="text-emerald-700 text-sm font-black">₹{o.finalAmount}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* VIEW 2: SERVICE BOOKINGS */}
+          {ordersSubTab === 'services' && (
+            <div className="space-y-3">
+              {bookings.length === 0 ? (
+                <div className="bg-white p-8 rounded-3xl text-center border space-y-2 text-xs text-slate-400">
+                  <Wrench className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="font-bold text-slate-600">कोई सर्विस बुकिंग दर्ज नहीं है।</p>
+                </div>
+              ) : (
+                bookings.map((b) => (
+                  <div key={b.docId} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-bold text-blue-900">#{b.bookingId}</span>
+                        <h4 className="font-black text-sm text-slate-900 mt-0.5">{b.serviceName}</h4>
+                        <p className="text-[11px] text-slate-500">स्लॉट: {b.slot} | तारीख: {b.scheduledDate || 'आज'}</p>
+                      </div>
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${
+                        b.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {b.status}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold">
+                        <span className="text-blue-900">स्वीकृत</span>
+                        <span className={b.status === 'On The Way' || b.status === 'In Progress' || b.status === 'Completed' ? 'text-purple-700' : 'text-slate-300'}>रास्ते में</span>
+                        <span className={b.status === 'Completed' ? 'text-emerald-600' : 'text-slate-300'}>पूरा हुआ</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div className={`h-full transition-all duration-500 ${
+                          b.status === 'Completed' ? 'w-full bg-emerald-600' :
+                          b.status === 'On The Way' || b.status === 'In Progress' ? 'w-2/3 bg-purple-600' : 'w-1/3 bg-blue-600'
+                        }`} />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => setActiveBookingDetail(b)} className="flex-1 bg-slate-100 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
+                        <FileText className="w-3.5 h-3.5 text-blue-900" /> फोटो व रसीद देखें
+                      </button>
+                      {b.isBilled && b.paymentStatus !== 'paid' && (
+                        <button onClick={() => setCustomerPayBooking(b)} className="flex-1 bg-emerald-600 text-white font-black py-2 rounded-xl text-xs shadow">
+                          बिल भरें (₹{b.finalTotal})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+        </main>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 7. TAB: ACCOUNT SCREEN                                              */}
       {/* ==================================================================== */}
       {activeTab === 'account' && (
         <main className="p-4 space-y-4">
@@ -1203,30 +989,26 @@ function CustomerMarketplace() {
 
           <div className="bg-white rounded-3xl border divide-y text-xs font-bold text-slate-700 shadow-sm">
             <div onClick={() => setActiveTab('orders')} className="p-4 flex justify-between items-center cursor-pointer">
-              <span className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-blue-900" /> मेरे आर्डर्स व बुकिंग्स</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+              <span>मेरे आर्डर व बुकिंग्स</span><ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
             <div onClick={() => setActiveTab('cart')} className="p-4 flex justify-between items-center cursor-pointer">
-              <span className="flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-amber-600" /> शॉपिंग कार्ट ({cart.length})</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+              <span>शॉपिंग कार्ट ({cart.length})</span><ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
             <div onClick={() => alert("कूपन कोड उपलब्ध: WELCOME50 (₹50 छूट) व ELECTRICAL10 (10% छूट)")} className="p-4 flex justify-between items-center cursor-pointer">
-              <span className="flex items-center gap-2"><Tag className="w-4 h-4 text-emerald-600" /> कूपन व ऑफर्स</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+              <span>कूपन व ऑफर्स</span><ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
-            <div onClick={() => alert("कस्टमर केयर हेल्पलाइन: 1800-123-4567 पर कॉल करें")} className="p-4 flex justify-between items-center cursor-pointer">
-              <span className="flex items-center gap-2"><HelpCircle className="w-4 h-4 text-purple-600" /> 24×7 सहायता व शिकायत</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+            <div onClick={() => alert("हेल्पलाइन: 1800-123-4567 पर कॉल करें")} className="p-4 flex justify-between items-center cursor-pointer">
+              <span>24×7 सहायता व शिकायत</span><ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
           </div>
         </main>
       )}
 
       {/* ==================================================================== */}
-      {/* 7. ALL MODALS (PRODUCT DETAILS, SERVICE DETAILS, CHECKOUT)           */}
+      {/* 8. MODALS (PRODUCT DETAILS, SERVICE DETAILS, CHECKOUT)               */}
       {/* ==================================================================== */}
 
-      {/* MODAL 1: PRODUCT DETAILS PAGE */}
+      {/* Product Details Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
@@ -1242,15 +1024,6 @@ function CustomerMarketplace() {
             </div>
 
             <p className="text-slate-600 bg-slate-50 p-3 rounded-2xl border">{selectedProduct.description}</p>
-
-            {selectedProduct.specs && (
-              <div className="bg-slate-50 p-3 rounded-2xl border space-y-1">
-                <span className="font-bold text-slate-800 block">स्पेसिफिकेशन्स:</span>
-                {Object.entries(selectedProduct.specs).map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-slate-600"><span>{k}:</span><strong>{v}</strong></div>
-                ))}
-              </div>
-            )}
 
             <div className="flex gap-2 pt-2">
               <button 
@@ -1270,7 +1043,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 2: SERVICE DETAILS PAGE */}
+      {/* Service Details Modal */}
       {selectedService && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative my-8 text-xs">
@@ -1280,14 +1053,14 @@ function CustomerMarketplace() {
             
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-black text-blue-900">₹{selectedService.price}</span>
-              <span className="text-xs text-slate-400">जांच शुल्क: ₹{selectedService.visiting || 99}</span>
+              <span className="text-xs text-slate-400">जांच शुल्क: ₹99</span>
             </div>
 
             <p className="text-slate-600 bg-slate-50 p-3 rounded-2xl border">{selectedService.description}</p>
 
             <div className="space-y-1.5">
               <span className="font-bold text-slate-800 block">इस सेवा में शामिल है:</span>
-              {(selectedService.includes || ["30 दिन की गारंटी", "सुरक्षा टेस्ट", "ओरिजिनल पार्ट्स"]).map((item, idx) => (
+              {(selectedService.includes || ["30 दिन की गारंटी", "सुरक्षा टेस्ट"]).map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-slate-700">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <span>{item}</span>
@@ -1308,7 +1081,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 3: SERVICE BOOKING FORM */}
+      {/* Service Booking Modal */}
       {bookingService && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={handleConfirmServiceBooking} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
@@ -1334,7 +1107,7 @@ function CustomerMarketplace() {
 
             <div>
               <label className="block font-bold mb-1">पूरा पता व लैंडमार्क</label>
-              <textarea required name="customAddress" rows={2} defaultValue={savedAddresses[selectedAddressIndex]?.line} placeholder="मकान नं., फ्लैट, गली, इलाका, जयपुर" className="w-full p-2 border rounded-xl bg-slate-50 font-semibold"></textarea>
+              <textarea required name="address" rows={2} defaultValue={savedAddresses[selectedAddressIndex]?.line} placeholder="मकान नं., फ्लैट, गली, इलाका, जयपुर" className="w-full p-2 border rounded-xl bg-slate-50 font-semibold"></textarea>
             </div>
 
             <button type="submit" className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow-lg">
@@ -1344,7 +1117,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 4: CHECKOUT FORM */}
+      {/* Checkout Modal */}
       {checkoutModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <form onSubmit={handleConfirmProductOrder} className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative">
@@ -1362,7 +1135,7 @@ function CustomerMarketplace() {
             </div>
 
             <div>
-              <label className="block font-bold mb-1">भुगतान का माध्यम (Payment Mode)</label>
+              <label className="block font-bold mb-1">भुगतान का माध्यम</label>
               <select name="paymentMode" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50">
                 <option value="cod">कैश ऑन डिलीवरी (Cash on Delivery)</option>
                 <option value="online_upi">ऑनलाइन UPI (PhonePe / GPay)</option>
@@ -1376,7 +1149,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 5: NOTIFICATIONS */}
+      {/* Notifications Modal */}
       {notificationModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3 text-xs shadow-2xl relative">
@@ -1396,7 +1169,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 6: LOGIN / REGISTRATION MODAL */}
+      {/* Customer Login / Register Modal */}
       {authModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative text-xs">
@@ -1414,10 +1187,10 @@ function CustomerMarketplace() {
               {authMode === 'register' && (
                 <input required type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="पूरा नाम" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
               )}
-              <input required type="tel" maxLength={10} value={authPhone} onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))} placeholder="10 अंकों का फोन नंबर" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
-              <input required type="password" maxLength={4} value={authPin} onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, ''))} placeholder="4 अंकों का पिन" className="w-full p-2.5 border rounded-xl text-center tracking-widest font-black text-base bg-slate-50" />
+              <input required type="tel" maxLength={10} value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} placeholder="10 अंकों का फोन नंबर" className="w-full p-2.5 border rounded-xl font-bold bg-slate-50" />
+              <input required type="password" maxLength={4} value={authPin} onChange={(e) => setAuthPin(e.target.value)} placeholder="4 अंकों का पिन" className="w-full p-2.5 border rounded-xl text-center tracking-widest font-black text-base bg-slate-50" />
               {authMode === 'register' && (
-                <input required type="password" maxLength={4} value={authConfirmPin} onChange={(e) => setAuthConfirmPin(e.target.value.replace(/\D/g, ''))} placeholder="पिन कन्फर्म करें" className="w-full p-2 border rounded-xl text-center font-black bg-slate-50" />
+                <input required type="password" maxLength={4} value={authConfirmPin} onChange={(e) => setAuthConfirmPin(e.target.value)} placeholder="पिन कन्फर्म करें" className="w-full p-2 border rounded-xl text-center font-black bg-slate-50" />
               )}
               <button disabled={authLoading} type="submit" className="w-full bg-[#FF9900] text-slate-950 font-black py-3 rounded-2xl shadow">
                 {authLoading ? "जांच जारी..." : authMode === 'login' ? "लॉगिन करें" : "खाता बनाएं"}
@@ -1427,7 +1200,7 @@ function CustomerMarketplace() {
         </div>
       )}
 
-      {/* MODAL 7: PHOTO PROOF & DIGITAL RECEIPT */}
+      {/* Booking Details & Photo Proof View */}
       {activeBookingDetail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-3.5 text-xs shadow-2xl relative my-8">
@@ -1464,8 +1237,48 @@ function CustomerMarketplace() {
         </div>
       )}
 
+      {/* Customer Payment Sheet */}
+      {customerPayBooking && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm space-y-4 shadow-2xl relative text-xs text-center">
+            <button onClick={() => setCustomerPayBooking(null)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5" /></button>
+            <h3 className="font-black text-base text-slate-900">सर्विस बिल भुगतान</h3>
+            <div className="text-xl font-black text-emerald-700">देय राशि: ₹{customerPayBooking.finalTotal}</div>
+            
+            <img 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=6367626276@upi%26pn=ElectricalHub%26am=${customerPayBooking.finalTotal}%26cu=INR`} 
+              alt="UPI QR Code" 
+              className="w-36 h-36 mx-auto rounded-2xl border bg-white p-1"
+            />
+
+            <div className="flex gap-2">
+              <button 
+                onClick={async () => {
+                  await updateDoc(doc(db, "bookings", customerPayBooking.docId), { paymentMode: 'cash', paymentStatus: 'cash_selected' });
+                  setCustomerPayBooking(null);
+                  alert("नकद भुगतान चुना गया!");
+                }}
+                className="flex-1 bg-slate-800 text-white font-bold py-2.5 rounded-xl"
+              >
+                💵 नकद (Cash)
+              </button>
+              <button 
+                onClick={async () => {
+                  await updateDoc(doc(db, "bookings", customerPayBooking.docId), { paymentMode: 'upi', paymentStatus: 'paid' });
+                  setCustomerPayBooking(null);
+                  alert("UPI भुगतान दर्ज हुआ!");
+                }}
+                className="flex-1 bg-emerald-700 text-white font-bold py-2.5 rounded-xl"
+              >
+                ✔ UPI पेड किया
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ==================================================================== */}
-      {/* 8. BOTTOM NAVIGATION BAR (MATCHING SCREENSHOT)                      */}
+      {/* 9. BOTTOM NAVIGATION BAR (MATCHING SCREENSHOT)                      */}
       {/* ==================================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around py-2 z-40 max-w-md mx-auto shadow-2xl">
         <button 
