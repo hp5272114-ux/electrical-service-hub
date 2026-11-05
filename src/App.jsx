@@ -818,6 +818,103 @@ function CustomerMarketplace() {
 
         </main>
       )}
+      {/* ================= 4. TAB: CART SCREEN ================= */}
+      {activeTab === 'cart' && (
+        <main className="p-4 space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="font-black text-lg text-slate-900 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-[#FF9900]" /> शॉपिंग कार्ट ({cart.length})
+            </h2>
+            {cart.length > 0 && (
+              <button onClick={() => setCart([])} className="text-xs text-rose-600 font-bold flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" /> खाली करें
+              </button>
+            )}
+          </div>
+
+          {cart.length === 0 ? (
+            <div className="bg-white p-8 rounded-3xl text-center border space-y-3 shadow-sm">
+              <ShoppingCart className="w-14 h-14 text-slate-300 mx-auto" />
+              <h3 className="font-black text-sm text-slate-800">आपकी कार्ट अभी खाली है!</h3>
+              <p className="text-xs text-slate-400">स्टोर से पंखे, तार, एमसीबी व अन्य सामान चुनें</p>
+              <button 
+                onClick={() => setActiveTab('home')} 
+                className="bg-[#0B1528] text-[#FF9900] font-black px-6 py-2.5 rounded-xl text-xs shadow-md mt-2"
+              >
+                सामान स्टोर खोलें ➔
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cart.map((item, idx) => (
+                <div key={idx} className="bg-white p-3.5 rounded-3xl border shadow-sm flex items-center justify-between text-xs gap-3">
+                  <img 
+                    src={item.image || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=160"} 
+                    alt={item.name} 
+                    className="w-14 h-14 object-contain rounded-xl bg-slate-50 border p-1" 
+                  />
+                  <div className="flex-1">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold">{item.brand || 'Electrical Hub'}</span>
+                    <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
+                    <div className="text-sm font-black text-slate-900 mt-0.5">₹{item.price * item.quantity}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-slate-50 border rounded-xl p-1">
+                    <button 
+                      onClick={() => {
+                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity - 1 } : x).filter(x => x.quantity > 0);
+                        setCart(updated);
+                      }} 
+                      className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm"
+                    >-</button>
+                    <span className="font-black text-xs w-4 text-center">{item.quantity}</span>
+                    <button 
+                      onClick={() => {
+                        const updated = cart.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x);
+                        setCart(updated);
+                      }} 
+                      className="w-6 h-6 bg-white rounded-lg font-black text-slate-700 flex items-center justify-center shadow-sm"
+                    >+</button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="bg-white p-4 rounded-3xl border space-y-2.5 text-xs shadow-sm">
+                <div className="flex justify-between font-bold text-slate-600">
+                  <span>सामान का मूल्य:</span>
+                  <span className="text-slate-900 font-black">₹{cartSubtotal}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-600">
+                  <span>डिलीवरी शुल्क:</span>
+                  <span className="text-emerald-600 font-bold">{cartSubtotal > 999 ? "फ्री (Free)" : "₹70"}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-black text-sm text-slate-900">
+                  <span>कुल देय राशि:</span>
+                  <span className="text-emerald-700 text-base">₹{cartSubtotal + (cartSubtotal > 999 ? 0 : 70)}</span>
+                </div>
+                <button 
+                  onClick={() => setCheckoutModal(true)}
+                  className="w-full mt-2 bg-[#FF9900] hover:bg-amber-500 text-slate-950 font-black py-3 rounded-2xl shadow-lg active:scale-95 transition text-xs"
+                >
+                  चेकआउट करें (Proceed to Buy) ➔
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ================= 5. TAB: ORDERS SCREEN ================= */}
+      {activeTab === 'orders' && (
+        <main className="p-4 space-y-4">
+          <h2 className="font-black text-base text-slate-900">मेरे आर्डर व लाइव ट्रैकिंग</h2>
+
+          {/* Toggle: Products vs Services */}
+          <div className="flex bg-slate-200 p-1 rounded-2xl text-xs font-black shadow-inner">
+            <button 
+              onClick={() => setSelectedCategory('orders_products')}
+              className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                selectedCategory !== 'orders_services' ? 'bg-[#0B1528] text-[#FF9900] shadow' : 'text-s
 
       {/* ==================================================================== */}
       {/* 3. TAB: CATEGORIES SCREEN (EXACTLY MATCHING MIDDLE SCREEN)          */}
